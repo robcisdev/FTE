@@ -1,0 +1,2981 @@
+<!DOCTYPE html><html lang="en"><head><meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Air-Flow - Boarding Ticket</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#5D5CDE',
+                        'light-bg': '#FFFFFF',
+                        'dark-bg': '#181818'
+                    },
+                    fontFamily: {
+                        'mono': ['Monaco', 'Menlo', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .boarding-pass {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .dark .boarding-pass {
+            background: linear-gradient(135deg, #4c63d2 0%, #5a4593 100%);
+        }
+        .ticket-perforation {
+            background-image: radial-gradient(circle at 50% 50%, transparent 8px, white 8px, white 12px, transparent 12px);
+            background-size: 24px 24px;
+            background-position: 0 0;
+        }
+        .dark .ticket-perforation {
+            background-image: radial-gradient(circle at 50% 50%, transparent 8px, #1f2937 8px, #1f2937 12px, transparent 12px);
+        }
+        .barcode-line {
+            background: repeating-linear-gradient(
+                90deg,
+                #000 0px,
+                #000 1px,
+                transparent 1px,
+                transparent 2px,
+                #000 2px,
+                #000 3px,
+                transparent 3px,
+                transparent 5px
+            );
+        }
+        .dark .barcode-line {
+            background: repeating-linear-gradient(
+                90deg,
+                #fff 0px,
+                #fff 1px,
+                transparent 1px,
+                transparent 2px,
+                #fff 2px,
+                #fff 3px,
+                transparent 3px,
+                transparent 5px
+            );
+        }
+        .timer-urgent {
+            animation: pulse-urgent 1s infinite;
+        }
+        @keyframes pulse-urgent {
+            0%, 100% { 
+                background-color: #ef4444; 
+                transform: scale(1);
+            }
+            50% { 
+                background-color: #dc2626; 
+                transform: scale(1.02);
+            }
+        }
+        .timer-warning {
+            background: linear-gradient(45deg, #f59e0b, #d97706);
+        }
+        .timer-normal {
+            background: linear-gradient(45deg, #10b981, #059669);
+        }
+        .timer-relaxed {
+            background: linear-gradient(45deg, #3b82f6, #1d4ed8);
+        }
+        .navigation-modal {
+            backdrop-filter: blur(10px);
+            background: rgba(0, 0, 0, 0.8);
+        }
+        .direction-arrow {
+            animation: pulse-arrow 2s infinite;
+        }
+        @keyframes pulse-arrow {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        .progress-step {
+            transition: all 0.5s ease;
+        }
+        .progress-step.active {
+            background: #10b981;
+            color: white;
+        }
+        .progress-step.completed {
+            background: #059669;
+            color: white;
+        }
+    </style>
+</head>
+<body class="bg-light-bg dark:bg-dark-bg min-h-screen transition-colors duration-300">
+    <!-- Header -->
+    <header class="bg-primary text-white p-4 shadow-lg">
+        <div class="max-w-md mx-auto flex items-center justify-between lg:max-w-4xl">
+            <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 bg-white rounded-full flex items-center justify-center">
+                    <svg class="w-5 h-5 text-primary" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M10 2L3 9h4v9h6v-9h4l-7-7z"></path>
+                    </svg>
+                </div>
+                <h1 class="text-xl font-bold lg:text-2xl">Air-Flow</h1>
+            </div>
+            <div class="flex items-center space-x-3">
+                <a href="index.html" target="_blank" class="bg-white bg-opacity-20 hover:bg-opacity-30 px-3 py-1 rounded-lg text-xs font-medium transition-colors flex items-center space-x-1" title="View solution details">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z"></path>
+                    </svg>
+                    <span>Solution Details</span>
+                </a>
+                <div class="text-sm opacity-90 lg:text-base">Prototype v1.0</div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Circular Quick Access Buttons -->
+    <div class="fixed top-20 right-4 z-50 flex flex-col space-y-3 lg:top-24 lg:right-8">
+        <!-- Restroom Quick Access -->
+        <button onclick="navigateTo('restroom')" class="w-14 h-14 bg-blue-500 hover:bg-blue-600 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 transform hover:scale-110 lg:w-16 lg:h-16" title="🚻 Restroom">
+            <svg class="w-6 h-6 text-white lg:w-7 lg:h-7" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M10 2a8 8 0 100 16 8 8 0 000-16zM7 9a1 1 0 100-2 1 1 0 000 2zm6 0a1 1 0 100-2 1 1 0 000 2zm-3 4a3 3 0 01-3-3h6a3 3 0 01-3 3z"></path>
+            </svg>
+        </button>
+        
+        <!-- Gate Quick Access -->
+        <button onclick="navigateTo('gate')" class="w-14 h-14 bg-red-500 hover:bg-red-600 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 transform hover:scale-110 lg:w-16 lg:h-16" title="🚪 Gate B7">
+            <svg class="w-6 h-6 text-white lg:w-7 lg:h-7" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M10 2L3 7v11h3v-6h8v6h3V7l-7-5z"></path>
+            </svg>
+        </button>
+    </div>
+
+    <!-- Demo Layout Container -->
+    <div class="flex min-h-screen bg-gray-50 dark:bg-gray-900">
+        <!-- Left Sidebar - Demo Controls -->
+        <div class="w-80 bg-white dark:bg-gray-800 shadow-xl border-r border-gray-200 dark:border-gray-700 overflow-y-auto max-h-screen">
+            <!-- Demo Controls Header -->
+            <div class="sticky top-0 bg-gradient-to-r from-purple-600 to-blue-600 text-white p-4 z-10">
+                <h2 class="text-xl font-bold mb-1">🚀 Air-Flow Demo</h2>
+                <p class="text-sm opacity-90">Select scenarios to see the magic</p>
+            </div>
+
+            <!-- Demo Controls Content -->
+            <div class="p-4 space-y-6" id="demoControlsContainer">
+                <!-- Journey Stages -->
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center">
+                        <span class="w-2 h-2 bg-purple-500 rounded-full mr-2"></span>
+                        Complete Passenger Journey
+                    </h3>
+                    <div class="space-y-2">
+                        <button id="stage1" class="journey-stage-btn w-full bg-blue-500 hover:bg-blue-600 text-white p-3 rounded-lg text-sm font-medium transition-all duration-300 flex items-center space-x-3">
+                            <div class="text-lg">🏠</div>
+                            <div class="text-left">
+                                <div class="font-semibold">Pre-Trip Planning</div>
+                                <div class="text-xs opacity-80">6+ hours before boarding</div>
+                            </div>
+                        </button>
+                        <button id="stage2" class="journey-stage-btn w-full bg-green-500 hover:bg-green-600 text-white p-3 rounded-lg text-sm font-medium transition-all duration-300 flex items-center space-x-3">
+                            <div class="text-lg">🛬</div>
+                            <div class="text-left">
+                                <div class="font-semibold">Airport Arrival</div>
+                                <div class="text-xs opacity-80">1-2 hours before boarding</div>
+                            </div>
+                        </button>
+                        <button id="stage3" class="journey-stage-btn w-full bg-purple-500 hover:bg-purple-600 text-white p-3 rounded-lg text-sm font-medium transition-all duration-300 flex items-center space-x-3">
+                            <div class="text-lg">⏰</div>
+                            <div class="text-left">
+                                <div class="font-semibold">Wait Time Optimization</div>
+                                <div class="text-xs opacity-80">30-60 minutes before</div>
+                            </div>
+                        </button>
+                        <button id="stage4" class="journey-stage-btn w-full bg-red-500 hover:bg-red-600 text-white p-3 rounded-lg text-sm font-medium transition-all duration-300 flex items-center space-x-3">
+                            <div class="text-lg">✈️</div>
+                            <div class="text-left">
+                                <div class="font-semibold">Boarding Time</div>
+                                <div class="text-xs opacity-80">0-15 minutes before</div>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Passenger Personas -->
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center">
+                        <span class="w-2 h-2 bg-indigo-500 rounded-full mr-2"></span>
+                        Passenger Personas
+                    </h3>
+                    <div class="space-y-2">
+                        <button id="persona-business" class="persona-btn w-full bg-indigo-500 hover:bg-indigo-600 text-white p-3 rounded-lg text-sm font-medium transition-all duration-300 flex items-center space-x-3">
+                            <div class="text-lg">💼</div>
+                            <div class="text-left">
+                                <div class="font-semibold">Business Traveler</div>
+                                <div class="text-xs opacity-80">Efficiency &amp; premium services</div>
+                            </div>
+                        </button>
+                        <button id="persona-family" class="persona-btn w-full bg-orange-500 hover:bg-orange-600 text-white p-3 rounded-lg text-sm font-medium transition-all duration-300 flex items-center space-x-3">
+                            <div class="text-lg">👨‍👩‍👧‍👦</div>
+                            <div class="text-left">
+                                <div class="font-semibold">Family Traveler</div>
+                                <div class="text-xs opacity-80">Accessibility &amp; convenience</div>
+                            </div>
+                        </button>
+                        <button id="persona-leisure" class="persona-btn w-full bg-pink-500 hover:bg-pink-600 text-white p-3 rounded-lg text-sm font-medium transition-all duration-300 flex items-center space-x-3">
+                            <div class="text-lg">🏖️</div>
+                            <div class="text-left">
+                                <div class="font-semibold">Leisure Traveler</div>
+                                <div class="text-xs opacity-80">Experience &amp; discovery</div>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Quick Demo Scenarios -->
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center">
+                        <span class="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
+                        Quick Scenarios
+                    </h3>
+                    <div class="grid grid-cols-1 gap-2">
+                        <button id="demo-panic" class="quick-demo-btn bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center space-x-2">
+                            <span>🚨</span><span>Late Passenger</span>
+                        </button>
+                        <button id="demo-early" class="quick-demo-btn bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center space-x-2">
+                            <span>🎯</span><span>Early Explorer</span>
+                        </button>
+                        <button id="demo-normal" class="quick-demo-btn bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center space-x-2">
+                            <span>✅</span><span>Perfect Timing</span>
+                        </button>
+                        <button id="demo-lost" class="quick-demo-btn bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center space-x-2">
+                            <span>🗺️</span><span>Lost Navigator</span>
+                        </button>
+                        <button id="demo-premium" class="quick-demo-btn bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center space-x-2">
+                            <span>💎</span><span>Premium Experience</span>
+                        </button>
+                        <button id="demo-security" class="quick-demo-btn bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center space-x-2">
+                            <span>🔒</span><span>Security Mode</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Navigation Actions -->
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center">
+                        <span class="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                        Quick Navigation
+                    </h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="navigateTo('gate')" class="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center justify-center">
+                            <span>🚪 Gate</span>
+                        </button>
+                        <button onclick="navigateTo('restroom')" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center justify-center">
+                            <span>🚻 Restroom</span>
+                        </button>
+                        <button onclick="navigateTo('food')" class="bg-orange-500 hover:bg-orange-600 text-white px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center justify-center">
+                            <span>🍽️ Food</span>
+                        </button>
+                        <button onclick="navigateTo('shops')" class="bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center justify-center">
+                            <span>🛍️ Shops</span>
+                        </button>
+                        <button onclick="navigateTo('parking')" class="bg-gray-600 hover:bg-gray-700 text-white px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center justify-center">
+                            <span>🅿️ Parking</span>
+                        </button>
+                        <button onclick="openLocationChanger()" class="bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center justify-center">
+                            <span>📍 Location</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Lock Screen Notifications -->
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center">
+                        <span class="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                        Lock Screen Notifications
+                    </h3>
+                    <div class="grid grid-cols-1 gap-2">
+                        <button id="notification-early" class="notification-btn bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center space-x-2">
+                            <span>📱</span><span>Early Bird (6h before)</span>
+                        </button>
+                        <button id="notification-travel" class="notification-btn bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center space-x-2">
+                            <span>🚗</span><span>Travel Time (2h before)</span>
+                        </button>
+                        <button id="notification-security" class="notification-btn bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center space-x-2">
+                            <span>🔒</span><span>Security Alert (1h before)</span>
+                        </button>
+                        <button id="notification-boarding" class="notification-btn bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center space-x-2">
+                            <span>✈️</span><span>Boarding Active</span>
+                        </button>
+                        <button id="notification-deals" class="notification-btn bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center space-x-2">
+                            <span>🎁</span><span>Special Offers</span>
+                        </button>
+                        <button id="notification-gate" class="notification-btn bg-orange-600 hover:bg-orange-700 text-white px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center space-x-2">
+                            <span>🚪</span><span>Gate Change Alert</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Reset Button -->
+                <div class="pt-4 border-t border-gray-200 dark:border-gray-600">
+                    <button id="demo-reset" class="w-full bg-gray-400 hover:bg-gray-500 text-white px-4 py-3 rounded-lg text-sm font-medium transition-colors flex items-center justify-center space-x-2">
+                        <span>🔄</span><span>Reset Demo</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Side - Demo Screen -->
+        <div class="flex-1 flex flex-col">
+            <!-- Demo Screen Header -->
+            <div class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Live Demo Preview</h2>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">Watch Air-Flow adapt in real-time</p>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <div class="inline-flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 text-sm">
+                            <div class="px-3 py-1 bg-primary text-white rounded-md flex items-center space-x-2">
+                                <span>📱</span><span>Mobile View</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Demo Screen Content -->
+            <div class="flex-1 bg-gray-100 dark:bg-gray-900 p-6 overflow-y-auto">
+                <div class="max-w-md mx-auto">
+                    <!-- Phone Frame -->
+                    <div class="bg-gray-800 rounded-[2.5rem] p-2 shadow-2xl">
+                        <div class="bg-light-bg dark:bg-dark-bg rounded-[2rem] overflow-hidden h-[900px] flex flex-col">
+                            <!-- Main Content -->
+                            <main class="p-4 flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200 dark:scrollbar-thumb-gray-600 dark:scrollbar-track-gray-800">
+
+
+        <!-- Boarding Pass Container -->
+        <div class="lg:max-w-2xl lg:mx-auto">
+            <!-- Boarding Pass -->
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden mb-6 transform hover:scale-105 transition-transform duration-300">
+                <!-- Header Section -->
+                <div class="boarding-pass text-white p-6">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h2 class="text-2xl font-bold lg:text-3xl">BOARDING PASS</h2>
+                            <p class="text-sm opacity-90 lg:text-base">SkyLine Airlines</p>
+                        </div>
+                        <div class="text-right">
+                            <div class="w-12 h-12 bg-white bg-opacity-20 rounded-full flex items-center justify-center lg:w-16 lg:h-16">
+                                <svg class="w-6 h-6 lg:w-8 lg:h-8" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M10 2L3 7v11h3v-6h8v6h3V7l-7-5z"></path>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Flight Route -->
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="text-center">
+                            <div class="text-3xl font-bold lg:text-4xl">NYC</div>
+                            <div class="text-xs opacity-80 lg:text-sm">John F. Kennedy</div>
+                        </div>
+                        <div class="flex-1 mx-4 relative">
+                            <div class="border-t-2 border-dashed border-white opacity-60"></div>
+                            <div class="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-2">
+                                <svg class="w-4 h-4 text-white lg:w-6 lg:h-6" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M16 7l-8-4-2 1v2l6 2-6 2v2l2 1 8-4v-2z"></path>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-3xl font-bold lg:text-4xl">LAX</div>
+                            <div class="text-xs opacity-80 lg:text-sm">Los Angeles Int'l</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Boarding Countdown Timer - Primary KPI -->
+                <div class="timer-normal text-white p-6 text-center" id="boardingTimer">
+                    <div class="flex items-center justify-center mb-2">
+                        <svg class="w-6 h-6 mr-2 lg:w-8 lg:h-8" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M10 2C5.589 2 2 5.589 2 10s3.589 8 8 8 8-3.589 8-8-3.589-8-8-8zm0 14c-3.309 0-6-2.691-6-6s2.691-6 6-6 6 2.691 6 6-2.691 6-6 6zm1-9h-2v5h5v-2h-3V7z"></path>
+                        </svg>
+                        <h3 class="text-lg font-bold lg:text-xl" id="timerLabel">BOARDING IN</h3>
+                    </div>
+                    
+                    <!-- Timer Display -->
+                    <div class="flex justify-center items-baseline space-x-2 lg:space-x-4 mb-2">
+                        <div class="text-center">
+                            <div class="text-3xl font-bold lg:text-5xl" id="hours">00</div>
+                            <div class="text-xs opacity-80 lg:text-sm">HRS</div>
+                        </div>
+                        <div class="text-2xl font-bold lg:text-4xl">:</div>
+                        <div class="text-center">
+                            <div class="text-3xl font-bold lg:text-5xl" id="minutes">28</div>
+                            <div class="text-xs opacity-80 lg:text-sm">MIN</div>
+                        </div>
+                        <div class="text-2xl font-bold lg:text-4xl">:</div>
+                        <div class="text-center">
+                            <div class="text-3xl font-bold lg:text-5xl" id="seconds">45</div>
+                            <div class="text-xs opacity-80 lg:text-sm">SEC</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Status Message -->
+                    <div class="text-sm opacity-90 lg:text-base mb-4" id="statusMessage">
+                        Plenty of time to reach Gate B7
+                    </div>
+
+                    <!-- Prominent Gate & Terminal Display -->
+                    <div class="bg-gradient-to-r from-white/15 via-white/25 to-white/15 rounded-2xl p-4 mb-4 backdrop-blur-md border border-white/30 shadow-xl">
+                        <div class="flex items-center justify-between">
+                            <!-- Gate Information -->
+                            <div class="flex items-center space-x-3">
+                                <div class="w-12 h-12 bg-gradient-to-br from-red-400 to-red-600 rounded-full flex items-center justify-center shadow-lg">
+                                    <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M10 2L3 7v11h3v-6h8v6h3V7l-7-5z"></path>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <div class="text-xs text-white/70 uppercase tracking-wide font-medium">Your Gate</div>
+                                    <div class="text-2xl font-black text-white lg:text-3xl">B7</div>
+                                </div>
+                            </div>
+
+                            <!-- Terminal Information -->
+                            <div class="flex items-center space-x-3">
+                                <div>
+                                    <div class="text-xs text-white/70 uppercase tracking-wide font-medium text-right">Terminal</div>
+                                    <div class="text-2xl font-black text-white lg:text-3xl text-right">B</div>
+                                </div>
+                                <div class="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center shadow-lg">
+                                    <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M19 7l-3-3v2H8v2h8v2l3-3zM2 17h16v2H2z"></path>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Quick Action -->
+                        <div class="mt-3 pt-3 border-t border-white/20">
+                            <button onclick="navigateTo('gate')" class="w-full bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-xl py-2 px-4 transition-all duration-300 flex items-center justify-center space-x-2 text-white font-semibold">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"></path>
+                                </svg>
+                                <span>Navigate to Gate B7</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Journey Timeline -->
+                    <div class="bg-gradient-to-r from-white/10 via-white/15 to-white/10 rounded-2xl p-5 mb-3 backdrop-blur-md border border-white/20 shadow-lg">
+                        <div class="flex items-center justify-between relative mb-4" id="journeyTimeline">
+                            <!-- Timeline Line Background -->
+                            <div class="absolute top-1/2 left-4 right-4 h-1 bg-gradient-to-r from-white/20 via-white/30 to-white/20 rounded-full transform -translate-y-1/2"></div>
+                            <!-- Active Progress Line -->
+                            <div class="absolute top-1/2 left-4 h-1 bg-gradient-to-r from-emerald-400 via-blue-400 to-purple-400 rounded-full transition-all duration-1000 transform -translate-y-1/2 shadow-sm" id="timelineProgress" style="width: 0%"></div>
+                            
+                            <!-- Timeline Steps -->
+                            <div class="flex items-center justify-between w-full relative z-10">
+                                <div class="timeline-step flex flex-col items-center text-center" id="step-traveling">
+                                    <div class="w-8 h-8 lg:w-10 lg:h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 shadow-lg flex items-center justify-center mb-2 transition-all duration-500 transform hover:scale-110">
+                                        <span class="text-sm lg:text-base">🚗</span>
+                                    </div>
+                                    <div class="text-xs lg:text-sm font-medium text-white/90 max-w-20 lg:max-w-24 leading-tight">Travel</div>
+                                </div>
+                                
+                                <div class="timeline-step flex flex-col items-center text-center" id="step-airport">
+                                    <div class="w-8 h-8 lg:w-10 lg:h-10 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-lg flex items-center justify-center mb-2 transition-all duration-500 transform hover:scale-110">
+                                        <span class="text-sm lg:text-base">🏢</span>
+                                    </div>
+                                    <div class="text-xs lg:text-sm font-medium text-white/90 max-w-20 lg:max-w-24 leading-tight">Airport</div>
+                                </div>
+                                
+                                <div class="timeline-step flex flex-col items-center text-center" id="step-security">
+                                    <div class="w-8 h-8 lg:w-10 lg:h-10 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 shadow-lg flex items-center justify-center mb-2 transition-all duration-500 transform hover:scale-110">
+                                        <span class="text-sm lg:text-base">🔒</span>
+                                    </div>
+                                    <div class="text-xs lg:text-sm font-medium text-white/90 max-w-20 lg:max-w-24 leading-tight">Security</div>
+                                </div>
+                                
+                                <div class="timeline-step flex flex-col items-center text-center" id="step-gate">
+                                    <div class="w-8 h-8 lg:w-10 lg:h-10 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 shadow-lg flex items-center justify-center mb-2 transition-all duration-500 transform hover:scale-110">
+                                        <span class="text-sm lg:text-base">✈️</span>
+                                    </div>
+                                    <div class="text-xs lg:text-sm font-medium text-white/90 max-w-20 lg:max-w-24 leading-tight">Gate</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Current Stage Indicator -->
+                        <div class="text-center bg-white/10 rounded-xl py-2 px-4 backdrop-blur-sm">
+                            <div class="text-xs text-white/70 mb-1">Current Stage</div>
+                            <div class="text-sm font-semibold text-white" id="currentStageText">On the way to the airport</div>
+                        </div>
+                    </div>
+
+                    <!-- Smart Insights Dropdown Toggle -->
+                    <button onclick="toggleInsights()" class="bg-white bg-opacity-20 hover:bg-opacity-30 px-4 py-2 rounded-lg font-medium transition-all duration-300 flex items-center justify-center mx-auto relative">
+                        <div class="flex items-center">
+                            <div class="mr-2 flex items-center">
+                                <span id="insightButtonText">3 Offers Near You</span>
+                                <div class="ml-2 bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded-full animate-pulse" id="offerCounter">3</div>
+                            </div>
+                            <svg class="w-4 h-4 transform transition-transform duration-300" id="dropdownIcon" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"></path>
+                            </svg>
+                        </div>
+                        <!-- Notification Dot -->
+                        <div class="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-ping" id="notificationDot"></div>
+                        <div class="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full" id="notificationDotStatic"></div>
+                    </button>
+
+                    <!-- Collapsible Smart Insights -->
+                    <div class="mt-4" id="insightsDropdown">
+                        <div class="bg-white bg-opacity-10 rounded-lg p-4 backdrop-blur-sm">
+                            <div class="flex items-center mb-3">
+                                <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20" id="insightIcon">
+                                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                <h4 class="font-bold text-sm lg:text-base" id="insightTitle">Perfect Timing!</h4>
+                            </div>
+                            
+                            <p class="text-xs lg:text-sm opacity-90 mb-3" id="insightDescription">
+                                You have plenty of time before boarding. Here are some recommendations to make your wait more enjoyable.
+                            </p>
+                            
+                            <div class="space-y-2" id="insightActions">
+                                <!-- Dynamic content will be inserted here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Perforation Line -->
+                <div class="ticket-perforation h-6"></div>
+
+                <!-- Ticket Details -->
+                <div class="p-6 bg-white dark:bg-gray-800">
+                    <div class="grid grid-cols-2 gap-6 mb-6 lg:grid-cols-4 lg:gap-8">
+                        <div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1 lg:text-sm">Passenger</div>
+                            <div class="font-semibold text-gray-900 dark:text-white lg:text-lg">Sarah Johnson</div>
+                        </div>
+                        <div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1 lg:text-sm">Flight</div>
+                            <div class="font-semibold text-gray-900 dark:text-white lg:text-lg">SL 2847</div>
+                        </div>
+                        <div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1 lg:text-sm">Date</div>
+                            <div class="font-semibold text-gray-900 dark:text-white lg:text-lg">Dec 15, 2024</div>
+                        </div>
+                        <div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1 lg:text-sm">Time</div>
+                            <div class="font-semibold text-gray-900 dark:text-white lg:text-lg">14:30</div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-4 mb-6 lg:gap-6">
+                        <div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1 lg:text-sm">Seat</div>
+                            <div class="font-bold text-xl text-primary lg:text-2xl">12A</div>
+                        </div>
+                        <div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1 lg:text-sm">Gate</div>
+                            <div class="font-bold text-xl text-primary lg:text-2xl">B7</div>
+                        </div>
+                        <div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1 lg:text-sm">Boarding</div>
+                            <div class="font-bold text-xl text-primary lg:text-2xl">14:00</div>
+                        </div>
+                    </div>
+
+                    <!-- Barcode -->
+                    <div class="border-t border-gray-200 dark:border-gray-600 pt-6">
+                        <div class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3 lg:text-sm">Boarding Code</div>
+                        <div class="barcode-line h-12 mb-3 rounded lg:h-16"></div>
+                        <div class="text-center font-mono text-xs text-gray-600 dark:text-gray-300 lg:text-sm">SL2847NYC1215124A</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="grid grid-cols-2 gap-4 lg:grid-cols-3 lg:gap-6">
+                <button class="bg-primary text-white py-3 px-6 rounded-xl font-semibold shadow-lg hover:bg-purple-600 transition-colors text-base lg:text-lg">
+                    Share Ticket
+                </button>
+                <button class="bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white py-3 px-6 rounded-xl font-semibold shadow-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-base lg:text-lg">
+                    Download PDF
+                </button>
+                <button onclick="openLocationChanger()" class="hidden lg:block bg-green-500 text-white py-3 px-6 rounded-xl font-semibold shadow-lg hover:bg-green-600 transition-colors text-lg">
+                    Update Location
+                </button>
+            </div>
+
+
+
+            <!-- Additional Info for larger screens -->
+            <div class="hidden lg:block mt-8 bg-gray-50 dark:bg-gray-700 rounded-xl p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Flight Information</h3>
+                <div class="grid grid-cols-3 gap-6 text-sm">
+                    <div>
+                        <span class="text-gray-500 dark:text-gray-400">Aircraft:</span>
+                        <span class="ml-2 text-gray-900 dark:text-white">Boeing 737-800</span>
+                    </div>
+                    <div>
+                        <span class="text-gray-500 dark:text-gray-400">Duration:</span>
+                        <span class="ml-2 text-gray-900 dark:text-white">5h 30m</span>
+                    </div>
+                    <div>
+                        <span class="text-gray-500 dark:text-gray-400">Class:</span>
+                        <span class="ml-2 text-gray-900 dark:text-white">Economy</span>
+                    </div>
+                </div>
+                            </div>
+                        </div>
+                    </main></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Journey Workflow Modal -->
+    <div id="journeyModal" class="fixed inset-0 navigation-modal z-50 hidden">
+        <div class="min-h-screen flex items-center justify-center p-4">
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-hidden">
+                <!-- Modal Header -->
+                <div class="bg-primary text-white p-6 text-center" id="modalHeader">
+                    <div class="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center mx-auto mb-4" id="modalIcon">
+                        <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M10 2L3 7v11h3v-6h8v6h3V7l-7-5z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2" id="modalTitle">✈️ Let's track your journey!</h3>
+                    <p class="text-sm opacity-90" id="modalSubtitle">Step 1 of 3 - Where are you right now?</p>
+                </div>
+
+                <!-- Progress Bar -->
+                <div class="px-6 pt-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-medium text-gray-500 dark:text-gray-400">Progress</span>
+                        <span class="text-xs text-primary font-medium" id="progressCounter">1/3</span>
+                    </div>
+                    <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                        <div class="bg-primary h-2 rounded-full transition-all duration-500" id="progressBar" style="width: 33.33%"></div>
+                    </div>
+                </div>
+
+                <!-- Dynamic Content Area -->
+                <div class="p-6 overflow-y-auto" id="modalContent" style="max-height: 60vh;">
+                    <!-- Content will be dynamically inserted here -->
+                </div>
+
+                <!-- Navigation Footer -->
+                <div class="p-4 border-t border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700" id="modalFooter">
+                    <div class="flex space-x-3">
+                        <button onclick="previousWorkflowStep()" id="prevWorkflowBtn" class="flex-1 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 py-3 px-4 rounded-lg font-medium transition-colors disabled:opacity-50" disabled="">
+                            ← Back
+                        </button>
+                        <button onclick="skipWorkflow()" id="skipWorkflowBtn" class="flex-1 bg-gray-400 hover:bg-gray-500 text-white py-3 px-4 rounded-lg font-medium transition-colors">
+                            Skip Setup
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Transport Mode Modal -->
+    <div id="transportModal" class="fixed inset-0 navigation-modal z-50 hidden">
+        <div class="min-h-screen flex items-center justify-center p-4">
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full">
+                <!-- Modal Header -->
+                <div class="bg-blue-500 text-white p-6 text-center">
+                    <div class="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span class="text-2xl">🚗</span>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">How are you getting there?</h3>
+                    <p class="text-sm opacity-90">This helps us customize your recommendations</p>
+                </div>
+
+                <!-- Transport Options -->
+                <div class="p-6">
+                    <div class="space-y-3">
+                        <button onclick="setTransportMode('driving')" class="w-full bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 rounded-xl p-4 text-left transition-all duration-300">
+                            <div class="flex items-center">
+                                <div class="w-12 h-12 bg-gray-600 rounded-full flex items-center justify-center mr-4">
+                                    <span class="text-white text-lg">🚗</span>
+                                </div>
+                                <div>
+                                    <div class="font-bold text-gray-900 dark:text-white">I'm driving</div>
+                                    <div class="text-sm text-gray-600 dark:text-gray-300">Need parking deals &amp; car location saving</div>
+                                </div>
+                            </div>
+                        </button>
+
+                        <button onclick="setTransportMode('rideshare')" class="w-full bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 rounded-xl p-4 text-left transition-all duration-300">
+                            <div class="flex items-center">
+                                <div class="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center mr-4">
+                                    <span class="text-white text-lg">🚕</span>
+                                </div>
+                                <div>
+                                    <div class="font-bold text-gray-900 dark:text-white">Uber / Taxi / Rideshare</div>
+                                    <div class="text-sm text-gray-600 dark:text-gray-300">Get entertainment &amp; arrival deals</div>
+                                </div>
+                            </div>
+                        </button>
+
+                        <button onclick="setTransportMode('public')" class="w-full bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 rounded-xl p-4 text-left transition-all duration-300">
+                            <div class="flex items-center">
+                                <div class="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center mr-4">
+                                    <span class="text-white text-lg">🚌</span>
+                                </div>
+                                <div>
+                                    <div class="font-bold text-gray-900 dark:text-white">Public transport / Friend</div>
+                                    <div class="text-sm text-gray-600 dark:text-gray-300">Show me airport services &amp; entertainment</div>
+                                </div>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lock Screen Notification Modal -->
+    <div id="lockScreenModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black" style="margin-left: 320px;"></div>
+        <div class="min-h-screen flex items-center justify-center" style="margin-left: 320px;">
+            <div class="relative w-full max-w-sm mx-4">
+                <!-- iPhone Lock Screen Background -->
+                <div class="relative bg-gradient-to-b from-gray-900 to-black rounded-[3rem] p-2 shadow-2xl">
+                    <img src="https://pfst.cf2.poecdn.net/base/image/faf8897dad685cebbc4cc796fcf1fb8cfd048c42fd8cbd2b06f19f0978dbdafb?w=423&amp;h=918" class="w-full h-auto rounded-[2.5rem]" alt="iPhone Lock Screen">
+                    
+                    <!-- Notification Overlay -->
+                    <div class="absolute top-52 left-4 right-4 space-y-3" id="lockScreenNotifications">
+                        <!-- Dynamic notifications will be inserted here -->
+                    </div>
+
+                    <!-- Close Button -->
+                    <button onclick="closeLockScreenNotification()" class="absolute top-8 right-8 w-8 h-8 bg-black bg-opacity-50 rounded-full flex items-center justify-center text-white hover:bg-opacity-70 transition-colors">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Navigation Modal -->
+    <div id="navigationModal" class="fixed inset-0 navigation-modal z-50 hidden">
+        <div class="min-h-screen flex items-center justify-center p-4">
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-hidden">
+                <!-- Modal Header -->
+                <div class="bg-primary text-white p-6 relative">
+                    <button onclick="closeNavigation()" class="absolute top-4 right-4 text-white hover:text-gray-200">
+                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"></path>
+                        </svg>
+                    </button>
+                    <div class="flex items-center mb-2">
+                        <div class="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center mr-3">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" id="navModalIcon">
+                                <path d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-bold" id="navModalTitle">Navigation to Gate B7</h3>
+                            <p class="text-sm opacity-90" id="navModalSubtitle">Terminal B, Concourse 2 • 8 min walk</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Progress Steps -->
+                <div class="p-4 border-b border-gray-200 dark:border-gray-600">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm font-medium text-gray-600 dark:text-gray-300">Progress</span>
+                        <span class="text-sm text-primary font-medium" id="progressText">Step 1 of 4</span>
+                    </div>
+                    <div class="flex space-x-2" id="progressSteps">
+                        <!-- Dynamic progress steps will be inserted here -->
+                    </div>
+                </div>
+
+                <!-- Current Step -->
+                <div class="p-6 flex-1 overflow-y-auto">
+                    <!-- Step Content -->
+                    <div class="text-center mb-6">
+                        <div class="w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-2xl flex items-center justify-center mx-auto mb-4 direction-arrow" id="stepIcon">
+                            <svg class="w-10 h-10 text-primary" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M10 18l8-8-8-8v6H2v4h8v6z"></path>
+                            </svg>
+                        </div>
+                        <h4 class="text-lg font-bold text-gray-900 dark:text-white mb-2" id="stepTitle">Head to Security Exit</h4>
+                        <p class="text-gray-600 dark:text-gray-300 text-sm" id="stepDescription">Exit the current area and head toward the main terminal corridor</p>
+                    </div>
+
+                    <!-- Visual Guide -->
+                    <div class="bg-gray-50 dark:bg-gray-700 rounded-xl p-4 mb-6">
+                        <h5 class="font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
+                            <svg class="w-4 h-4 mr-2 text-primary" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"></path>
+                                <path d="M10 2C5.589 2 2 5.589 2 10s3.589 8 8 8 8-3.589 8-8-3.589-8-8-8zm0 14c-3.309 0-6-2.691-6-6s2.691-6 6-6 6 2.691 6 6-2.691 6-6 6z"></path>
+                            </svg>
+                            Look for these signs:
+                        </h5>
+                        <div class="space-y-3" id="visualGuides">
+                            <!-- Dynamic visual guides will be inserted here -->
+                        </div>
+                    </div>
+
+                    <!-- Estimated Time & Distance -->
+                    <div class="flex justify-between items-center bg-blue-50 dark:bg-blue-900 rounded-lg p-3 mb-4">
+                        <div class="flex items-center text-blue-700 dark:text-blue-300">
+                            <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M10 2C5.589 2 2 5.589 2 10s3.589 8 8 8 8-3.589 8-8-3.589-8-8-8zm0 14c-3.309 0-6-2.691-6-6s2.691-6 6-6 6 2.691 6 6-2.691 6-6 6zm1-9h-2v5h5v-2h-3V7z"></path>
+                            </svg>
+                            <span class="text-sm font-medium" id="stepTime">2 minutes</span>
+                        </div>
+                        <div class="flex items-center text-blue-700 dark:text-blue-300">
+                            <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M10 2L3 7v11h3v-6h8v6h3V7l-7-5z"></path>
+                            </svg>
+                            <span class="text-sm font-medium" id="stepDistance">200m</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Navigation Controls -->
+                <div class="p-4 border-t border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700">
+                    <div class="flex space-x-3">
+                        <button onclick="previousStep()" id="prevBtn" class="flex-1 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 py-3 px-4 rounded-lg font-medium transition-colors disabled:opacity-50" disabled="">
+                            ← Previous
+                        </button>
+                        <button onclick="nextStep()" id="nextBtn" class="flex-1 bg-primary text-white py-3 px-4 rounded-lg font-medium hover:bg-purple-600 transition-colors">
+                            Next Step →
+                        </button>
+                    </div>
+                    <button onclick="simulateArrival()" class="w-full mt-3 bg-green-500 text-white py-2 px-4 rounded-lg font-medium hover:bg-green-600 transition-colors text-sm">
+                        🎯 Simulate "I've Arrived"
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Dark mode detection
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+
+        // Boarding Timer Countdown - Primary KPI
+        let boardingTime = new Date();
+        boardingTime.setMinutes(boardingTime.getMinutes() + 30); // 30 minutes from now for demo
+        let timerInterval = null;
+
+        // Location-aware journey tracking
+        let userLocation = {
+            status: null, // 'traveling', 'parked', 'security', 'inside'
+            isFirstTime: true,
+            transportMode: null, // 'driving', 'rideshare', 'public'
+            parkingSpot: null,
+            hasAskedLocation: false
+        };
+
+        function updateTimer() {
+            const now = new Date().getTime();
+            const timeLeft = boardingTime.getTime() - now;
+
+            if (timeLeft > 0) {
+                const hours = Math.floor(timeLeft / (1000 * 60 * 60));
+                const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+
+                // Update display
+                document.getElementById('hours').textContent = hours.toString().padStart(2, '0');
+                document.getElementById('minutes').textContent = minutes.toString().padStart(2, '0');
+                document.getElementById('seconds').textContent = seconds.toString().padStart(2, '0');
+
+                // Update timer styling and messages based on time left
+                const timerElement = document.getElementById('boardingTimer');
+                const statusMessage = document.getElementById('statusMessage');
+                const timerLabel = document.getElementById('timerLabel');
+
+                if (timeLeft <= 5 * 60 * 1000) { // 5 minutes or less - URGENT
+                    timerElement.className = 'timer-urgent text-white p-6 text-center';
+                    statusMessage.textContent = '🚨 BOARDING NOW! Proceed to Gate B7 immediately!';
+                    timerLabel.textContent = 'BOARDING NOW';
+                } else if (timeLeft <= 15 * 60 * 1000) { // 15 minutes or less - WARNING
+                    timerElement.className = 'timer-warning text-white p-6 text-center';
+                    statusMessage.textContent = '⚠️ Get ready! Head to Gate B7 soon';
+                    timerLabel.textContent = 'BOARDING SOON';
+                } else if (timeLeft >= 4 * 60 * 60 * 1000) { // 4+ hours - RELAXED
+                    timerElement.className = 'timer-relaxed text-white p-6 text-center';
+                    statusMessage.textContent = 'Plenty of time! No rush needed';
+                    timerLabel.textContent = 'BOARDING IN';
+                } else { // More than 15 minutes but less than 4 hours - NORMAL
+                    timerElement.className = 'timer-normal text-white p-6 text-center';
+                    statusMessage.textContent = 'Plenty of time to reach Gate B7';
+                    timerLabel.textContent = 'BOARDING IN';
+                }
+
+                // Update smart insights based on time left
+                updateSmartInsights(timeLeft);
+                
+                // Update journey timeline
+                updateJourneyTimeline(timeLeft);
+            } else {
+                // Boarding time has passed
+                document.getElementById('hours').textContent = '00';
+                document.getElementById('minutes').textContent = '00';
+                document.getElementById('seconds').textContent = '00';
+                
+                const timerElement = document.getElementById('boardingTimer');
+                const statusMessage = document.getElementById('statusMessage');
+                const timerLabel = document.getElementById('timerLabel');
+                
+                timerElement.className = 'timer-urgent text-white p-6 text-center';
+                statusMessage.textContent = '✈️ Boarding has started! Check with gate agent';
+                timerLabel.textContent = 'BOARDING ACTIVE';
+                
+                // Update smart insights for boarding active state
+                updateSmartInsights(0);
+            }
+        }
+
+        // Enhanced timer system with proper controls
+        function startTimer() {
+            // Clear any existing timer
+            if (timerInterval) {
+                clearInterval(timerInterval);
+            }
+            
+            // Immediately update display
+            updateTimer();
+            
+            // Start new interval
+            timerInterval = setInterval(updateTimer, 1000);
+        }
+
+        // Add some interactive effects
+        document.addEventListener('DOMContentLoaded', function() {
+            // Start the countdown timer
+            startTimer();
+
+            const buttons = document.querySelectorAll('button');
+            buttons.forEach(button => {
+                button.addEventListener('click', function() {
+                    // Simple feedback for prototype
+                    this.style.transform = 'scale(0.95)';
+                    setTimeout(() => {
+                        this.style.transform = 'scale(1)';
+                    }, 150);
+                });
+            });
+
+            // No duplicate demo controls - using sidebar buttons only
+
+            // Enhanced Demo Controls Event Listeners
+            setupEnhancedDemoControls();
+
+            // Check for first-time user and show location modal
+            checkFirstTimeUser();
+        });
+
+        // Smart Insights based on boarding time
+        function updateSmartInsights(timeLeft) {
+            const insightTitle = document.getElementById('insightTitle');
+            const insightDescription = document.getElementById('insightDescription');
+            const insightActions = document.getElementById('insightActions');
+            const insightIcon = document.getElementById('insightIcon');
+
+            // Update engaging button text and counter
+            const buttonText = document.getElementById('insightButtonText');
+            const offerCounter = document.getElementById('offerCounter');
+            const notificationDot = document.getElementById('notificationDot');
+            const notificationDotStatic = document.getElementById('notificationDotStatic');
+
+            if (timeLeft <= 0) { // BOARDING ACTIVE - Only show gate wayfinding
+                buttonText.textContent = '🚨 Go to Gate Now!';
+                offerCounter.textContent = '1';
+                offerCounter.className = 'ml-2 bg-red-400 text-red-900 text-xs font-bold px-2 py-1 rounded-full animate-pulse';
+                notificationDot.className = 'absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-ping';
+                notificationDotStatic.className = 'absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full';
+
+                insightTitle.textContent = 'Boarding Active!';
+                insightDescription.textContent = 'Boarding has started! You must go to your gate immediately. All other services are now closed or unavailable.';
+                insightIcon.innerHTML = '<path d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>';
+                
+                insightActions.innerHTML = `
+                    <button onclick="navigateTo('gate')" class="w-full bg-red-600 hover:bg-red-700 text-white py-4 px-4 rounded-lg font-bold transition-colors flex items-center justify-center animate-pulse text-lg">
+                        <svg class="w-6 h-6 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M10 18l8-8-8-8v6H2v4h8v6z"/>
+                        </svg>
+                        <span>🚪 WAYFINDING TO GATE B7</span>
+                    </button>
+                `;
+            } else if (timeLeft >= 6 * 60 * 60 * 1000) { // 6+ hours - EXPLORE CITY
+                buttonText.textContent = '🌟 6 Epic Adventures';
+                offerCounter.textContent = '6';
+                offerCounter.className = 'ml-2 bg-purple-400 text-purple-900 text-xs font-bold px-2 py-1 rounded-full animate-pulse';
+                notificationDot.className = 'absolute -top-1 -right-1 w-3 h-3 bg-purple-500 rounded-full animate-ping';
+                notificationDotStatic.className = 'absolute -top-1 -right-1 w-3 h-3 bg-purple-500 rounded-full';
+
+                insightTitle.textContent = 'Explore the City!';
+                insightDescription.textContent = 'You have plenty of time for an adventure! Explore nearby attractions, get a hotel room, or enjoy the city before your flight.';
+                insightIcon.innerHTML = '<path d="M12 2l3.09 6.26L22 9l-5 4.87L18.18 21 12 17.77 5.82 21 7 13.87 2 9l6.91-.74L12 2z"/>';
+                
+                insightActions.innerHTML = `
+                    <button onclick="claimOffer('uber-city')" class="w-full bg-purple-500 hover:bg-purple-600 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-between">
+                        <span>🚗 Uber City Tour</span>
+                        <span class="text-sm">40% OFF</span>
+                    </button>
+                    <button onclick="claimOffer('hotel')" class="w-full bg-indigo-500 hover:bg-indigo-600 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-between">
+                        <span>🏨 Day-Use Hotel Rooms</span>
+                        <span class="text-sm">50% OFF</span>
+                    </button>
+                    <button onclick="claimOffer('attractions')" class="w-full bg-pink-500 hover:bg-pink-600 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-between">
+                        <span>🎡 Local Attractions</span>
+                        <span class="text-sm">30% OFF</span>
+                    </button>
+                    <button onclick="claimOffer('parking-extended')" class="w-full bg-teal-500 hover:bg-teal-600 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-between">
+                        <span>🅿️ Extended Parking</span>
+                        <span class="text-sm">$15→$9.75/day</span>
+                    </button>
+                    <button onclick="navigateTo('food')" class="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-between">
+                        <span>🍽️ Premium Dining</span>
+                        <span class="text-sm">5 min walk</span>
+                    </button>
+                    <button onclick="claimOffer('spa')" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-between">
+                        <span>💆‍♀️ Airport Spa & Wellness</span>
+                        <span class="text-sm">25% OFF</span>
+                    </button>
+                `;
+            } else if (timeLeft >= 1 * 60 * 60 * 1000) { // 1+ hours - RELAX & EXPLORE
+                buttonText.textContent = '🎊 5 Premium Experiences';
+                offerCounter.textContent = '5';
+                offerCounter.className = 'ml-2 bg-blue-400 text-blue-900 text-xs font-bold px-2 py-1 rounded-full animate-pulse';
+                notificationDot.className = 'absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full animate-ping';
+                notificationDotStatic.className = 'absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full';
+
+                insightTitle.textContent = 'Plenty of Time to Relax!';
+                insightDescription.textContent = 'With over an hour before boarding, treat yourself to premium experiences and make the most of your wait time.';
+                insightIcon.innerHTML = '<path d="M13 10V3L4 14h7v7l9-11h-7z"/>';
+                
+                insightActions.innerHTML = `
+                    <button onclick="claimOffer('uber-short')" class="w-full bg-blue-500 hover:bg-blue-600 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-between">
+                        <span>🚕 Quick Uber Trip</span>
+                        <span class="text-sm">30% OFF</span>
+                    </button>
+                    <button onclick="navigateTo('lounge')" class="w-full bg-purple-500 hover:bg-purple-600 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-between">
+                        <span>🛋️ Premium Lounge Access</span>
+                        <span class="text-sm">$25 day pass</span>
+                    </button>
+                    <button onclick="claimOffer('parking-long')" class="w-full bg-cyan-500 hover:bg-cyan-600 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-between">
+                        <span>🅿️ Long-Term Parking</span>
+                        <span class="text-sm">$12→$9.60/day</span>
+                    </button>
+                    <button onclick="claimOffer('massage')" class="w-full bg-green-500 hover:bg-green-600 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-between">
+                        <span>💆 Express Massage</span>
+                        <span class="text-sm">15% OFF</span>
+                    </button>
+                    <button onclick="navigateTo('shops')" class="w-full bg-rose-500 hover:bg-rose-600 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-between">
+                        <span>🛍️ Luxury Shopping</span>
+                        <span class="text-sm">6 min walk</span>
+                    </button>
+                `;
+            } else if (timeLeft <= 5 * 60 * 1000) { // 5 minutes or less - URGENT
+                buttonText.textContent = '⚡ 2 Quick Options';
+                offerCounter.textContent = '2';
+                offerCounter.className = 'ml-2 bg-red-400 text-red-900 text-xs font-bold px-2 py-1 rounded-full animate-pulse';
+                notificationDot.className = 'absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-ping';
+                notificationDotStatic.className = 'absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full';
+
+                insightTitle.textContent = 'Last Minute Essentials';
+                insightDescription.textContent = 'Quick stops only! Focus on essentials before boarding.';
+                insightIcon.innerHTML = '<path d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>';
+                
+                insightActions.innerHTML = `
+                    <button onclick="navigateTo('restroom')" class="w-full bg-red-500 hover:bg-red-600 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-between">
+                        <span>🚻 Nearest Restroom</span>
+                        <span class="text-sm">2 min walk</span>
+                    </button>
+                    <button onclick="navigateTo('gate')" class="w-full bg-red-600 hover:bg-red-700 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-between">
+                        <span>🚪 Go to Gate B7</span>
+                        <span class="text-sm">Walk now!</span>
+                    </button>
+                `;
+            } else if (timeLeft <= 15 * 60 * 1000) { // 15 minutes - WARNING
+                buttonText.textContent = '🍴 3 Quick Deals';
+                offerCounter.textContent = '3';
+                offerCounter.className = 'ml-2 bg-orange-400 text-orange-900 text-xs font-bold px-2 py-1 rounded-full animate-pulse';
+                notificationDot.className = 'absolute -top-1 -right-1 w-3 h-3 bg-orange-500 rounded-full animate-ping';
+                notificationDotStatic.className = 'absolute -top-1 -right-1 w-3 h-3 bg-orange-500 rounded-full';
+
+                insightTitle.textContent = 'Quick Picks Available';
+                insightDescription.textContent = 'Perfect time for a quick snack or coffee before heading to your gate.';
+                insightIcon.innerHTML = '<path d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>';
+                
+                insightActions.innerHTML = `
+                    <button onclick="claimOffer('coffee')" class="w-full bg-amber-500 hover:bg-amber-600 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-between">
+                        <span>☕ Quick Coffee & Pastry</span>
+                        <span class="text-sm">15% OFF</span>
+                    </button>
+                    <button onclick="claimOffer('snack')" class="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-between">
+                        <span>🥪 Grab & Go Snacks</span>
+                        <span class="text-sm">10% OFF</span>
+                    </button>
+                    <button onclick="navigateTo('restroom')" class="w-full bg-blue-500 hover:bg-blue-600 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-between">
+                        <span>🚻 Restroom Break</span>
+                        <span class="text-sm">5 min walk</span>
+                    </button>
+                `;
+            } else { // More than 15 minutes - NORMAL or LOCATION-AWARE
+                // Check if we have location-specific content to show
+                if (userLocation.status === 'security-guide') {
+                    // Show comprehensive security guide instead of normal content
+                    showSecurityModeContent();
+                } else if (userLocation.status && userLocation.hasAskedLocation) {
+                    showLocationSpecificContent(buttonText, offerCounter, notificationDot, notificationDotStatic, insightTitle, insightDescription, insightIcon, insightActions);
+                } else {
+                    // Show time-based recommendation even without location data
+                    const timeLeft = boardingTime.getTime() - new Date().getTime();
+                    const recommended = getRecommendedLocationForTime(timeLeft);
+                    
+                    buttonText.textContent = '🎯 3 Hot Deals Near You';
+                    offerCounter.textContent = '3';
+                    offerCounter.className = 'ml-2 bg-green-400 text-green-900 text-xs font-bold px-2 py-1 rounded-full animate-pulse';
+                    notificationDot.className = 'absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-ping';
+                    notificationDotStatic.className = 'absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full';
+
+                    insightTitle.textContent = 'Perfect Timing!';
+                    insightDescription.textContent = `You have plenty of time before boarding. Based on your schedule, you should be ${recommended.message}.`;
+                    insightIcon.innerHTML = '<path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>';
+                    
+                    insightActions.innerHTML = `
+                        <div class="bg-blue-50 dark:bg-blue-900 rounded-lg p-3 mb-3">
+                            <div class="flex items-center">
+                                <span class="text-lg mr-2">📍</span>
+                                <div>
+                                    <div class="font-bold text-sm text-blue-900 dark:text-blue-100">Recommended: ${recommended.message}</div>
+                                    <div class="text-xs text-blue-700 dark:text-blue-200">Based on your boarding time</div>
+                                </div>
+                            </div>
+                        </div>
+                        <button onclick="claimOffer('restaurant')" class="w-full bg-green-500 hover:bg-green-600 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-between mb-2">
+                            <span>🍽️ Full Dining Experience</span>
+                            <span class="text-sm">20% OFF</span>
+                        </button>
+                        <button onclick="claimOffer('shopping')" class="w-full bg-blue-500 hover:bg-blue-600 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-between mb-2">
+                            <span>🛍️ Duty-Free Shopping</span>
+                            <span class="text-sm">25% OFF</span>
+                        </button>
+                        <button onclick="navigateTo('lounge')" class="w-full bg-purple-500 hover:bg-purple-600 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-between">
+                            <span>🛋️ Premium Lounge Access</span>
+                            <span class="text-sm">$15 day pass</span>
+                        </button>
+                    `;
+                }
+            }
+        }
+
+        // Enhanced Navigation System
+        let currentNavigation = null;
+        let currentStep = 0;
+
+        const navigationRoutes = {
+            'restroom': {
+                name: 'Nearest Restroom',
+                location: 'Terminal A, Level 2',
+                totalTime: '2 minutes',
+                icon: '<path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84l7 3a1 1 0 00.788 0l7-3a1 1 0 000-1.84l-7-3z"/>',
+                steps: [
+                    {
+                        title: 'Exit Current Area',
+                        description: 'Head toward the main corridor',
+                        time: '30 seconds',
+                        distance: '50m',
+                        icon: '<path d="M10 18l8-8-8-8v6H2v4h8v6z"/>',
+                        visualGuides: [
+                            { type: 'blue', text: '🚪 "EXIT" signs', description: 'Blue rectangular signs pointing to corridors' },
+                            { type: 'arrow', text: '➡️ Follow arrows', description: 'White arrows on blue background' }
+                        ]
+                    },
+                    {
+                        title: 'Follow Restroom Signs',
+                        description: 'Look for universal restroom symbols',
+                        time: '1 minute',
+                        distance: '100m',
+                        icon: '<path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z"/>',
+                        visualGuides: [
+                            { type: 'white', text: '🚻 Universal Symbol', description: 'White male/female figures on dark background' },
+                            { type: 'distance', text: '200m →', description: 'Distance indicators below restroom signs' }
+                        ]
+                    },
+                    {
+                        title: 'Arrive at Restrooms',
+                        description: 'Located near Gate B5 area',
+                        time: '30 seconds',
+                        distance: '50m',
+                        icon: '<path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>',
+                        visualGuides: [
+                            { type: 'green', text: '✓ "RESTROOMS"', description: 'Green signs indicating you\'ve arrived' },
+                            { type: 'facilities', text: '♿ Accessibility symbols', description: 'Additional facility indicators' }
+                        ],
+                        coupon: {
+                            title: 'Comfort Kit Essentials',
+                            discount: '15% OFF',
+                            description: 'Travel comfort items and hygiene products',
+                            code: 'COMFORT15'
+                        }
+                    }
+                ]
+            },
+            'gate': {
+                name: 'Gate B7',
+                location: 'Terminal B, Concourse 2',
+                totalTime: '8 minutes',
+                icon: '<path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/>',
+                steps: [
+                    {
+                        title: 'Head to Terminal B',
+                        description: 'Follow signs to Terminal B / Concourse 2',
+                        time: '3 minutes',
+                        distance: '300m',
+                        icon: '<path d="M10 18l8-8-8-8v6H2v4h8v6z"/>',
+                        visualGuides: [
+                            { type: 'yellow', text: '🚶 "TERMINAL B"', description: 'Large yellow directional signs overhead' },
+                            { type: 'blue', text: '✈️ "CONCOURSE 2"', description: 'Blue signs with gate numbers B1-B20' }
+                        ]
+                    },
+                    {
+                        title: 'Enter Concourse 2',
+                        description: 'Pass through security checkpoint if needed',
+                        time: '2 minutes',
+                        distance: '150m',
+                        icon: '<path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z"/>',
+                        visualGuides: [
+                            { type: 'red', text: '🔒 Security Checkpoint', description: 'Red/white striped barriers and scanners' },
+                            { type: 'gate', text: 'Gates B1-B10 ←', description: 'Gate range indicators on walls' }
+                        ]
+                    },
+                    {
+                        title: 'Locate Gate B7',
+                        description: 'Gates are numbered sequentially',
+                        time: '2 minutes',
+                        distance: '200m',
+                        icon: '<path d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"/>',
+                        visualGuides: [
+                            { type: 'blue', text: 'B5 B6 B7 →', description: 'Sequential gate numbers on overhead signs' },
+                            { type: 'led', text: '📺 Digital Displays', description: 'LED screens showing flight info at each gate' }
+                        ]
+                    },
+                    {
+                        title: 'Arrive at Gate B7',
+                        description: 'Look for SL 2847 on the display',
+                        time: '1 minute',
+                        distance: '50m',
+                        icon: '<path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>',
+                        visualGuides: [
+                            { type: 'green', text: '✈️ "GATE B7"', description: 'Large green sign above seating area' },
+                            { type: 'flight', text: 'SL 2847 LAX', description: 'Your flight number on digital board' }
+                        ],
+                        coupon: {
+                            title: 'Priority Services',
+                            discount: '20% OFF',
+                            description: 'Airport lounge access and priority boarding services',
+                            code: 'PRIORITY20'
+                        }
+                    }
+                ]
+            },
+            'parking': {
+                name: 'Parking Spot A3',
+                location: 'Parking Garage Level 3',
+                totalTime: '15 minutes',
+                icon: '<path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/>',
+                steps: [
+                    {
+                        title: 'Exit Terminal',
+                        description: 'Follow "PARKING" and "EXIT" signs',
+                        time: '5 minutes',
+                        distance: '400m',
+                        icon: '<path d="M10 18l8-8-8-8v6H2v4h8v6z"/>',
+                        visualGuides: [
+                            { type: 'green', text: '🚗 "PARKING"', description: 'Green signs with car symbols' },
+                            { type: 'exit', text: '🚪 "EXIT TO GARAGE"', description: 'Red exit signs pointing to garage' }
+                        ]
+                    },
+                    {
+                        title: 'Take Elevator to Level 3',
+                        description: 'Look for elevators or stairs to Level 3',
+                        time: '3 minutes',
+                        distance: '100m',
+                        icon: '<path d="M7 14l3-3 3 3M7 6l3 3 3-3"/>',
+                        visualGuides: [
+                            { type: 'elevator', text: '🛗 "ELEVATOR"', description: 'Silver elevator doors with up/down arrows' },
+                            { type: 'level', text: '3️⃣ Level 3', description: 'Large number 3 on elevator buttons and signs' }
+                        ]
+                    },
+                    {
+                        title: 'Navigate to Section A',
+                        description: 'Follow overhead signs to Section A',
+                        time: '4 minutes',
+                        distance: '300m',
+                        icon: '<path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z"/>',
+                        visualGuides: [
+                            { type: 'section', text: '🅰️ "SECTION A"', description: 'Large letter A on overhead signs' },
+                            { type: 'arrow', text: '← A1-A50', description: 'Parking space ranges with arrows' }
+                        ]
+                    },
+                    {
+                        title: 'Find Row 3, Space A3',
+                        description: 'Look for row numbers and space markers',
+                        time: '3 minutes',
+                        distance: '150m',
+                        icon: '<path d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"/>',
+                        visualGuides: [
+                            { type: 'row', text: 'ROW 1 ROW 2 ROW 3', description: 'White numbers painted on the ground' },
+                            { type: 'space', text: 'A3', description: 'Yellow painted space number A3' }
+                        ],
+                        coupon: {
+                            title: 'Car Care Services',
+                            discount: '25% OFF',
+                            description: 'Car wash, detailing, and maintenance services',
+                            code: 'CARCARE25'
+                        }
+                    }
+                ]
+            },
+            'food': {
+                name: 'Food Court',
+                location: 'Terminal A, Central Hub',
+                totalTime: '5 minutes',
+                icon: '<path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/>',
+                steps: [
+                    {
+                        title: 'Head to Central Hub',
+                        description: 'Follow dining and food court signs',
+                        time: '2 minutes',
+                        distance: '200m',
+                        icon: '<path d="M10 18l8-8-8-8v6H2v4h8v6z"/>',
+                        visualGuides: [
+                            { type: 'food', text: '🍽️ "DINING"', description: 'Brown signs with fork and knife symbols' },
+                            { type: 'central', text: '🏢 "CENTRAL HUB"', description: 'Large overhead directional signs' }
+                        ]
+                    },
+                    {
+                        title: 'Enter Food Court Area',
+                        description: 'Multiple restaurant options available',
+                        time: '1 minute',
+                        distance: '100m',
+                        icon: '<path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z"/>',
+                        visualGuides: [
+                            { type: 'court', text: '🍕 McDonald\'s, Starbucks', description: 'Individual restaurant signs and logos' },
+                            { type: 'seating', text: '🪑 Seating Area', description: 'Tables and chairs in central area' }
+                        ]
+                    },
+                    {
+                        title: 'Choose Your Restaurant',
+                        description: 'Various dining options are available',
+                        time: '2 minutes',
+                        distance: '50m',
+                        icon: '<path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>',
+                        visualGuides: [
+                            { type: 'menu', text: '📋 Menu Boards', description: 'Digital or printed menus at each location' },
+                            { type: 'queue', text: '👥 Order Here', description: 'Queue lines and order counters' }
+                        ],
+                        coupon: {
+                            title: 'Food Court Special',
+                            discount: '20% OFF',
+                            description: 'All participating restaurants and beverages',
+                            code: 'FOODIE20'
+                        }
+                    }
+                ]
+            },
+            'shops': {
+                name: 'Shopping Area',
+                location: 'Terminal B, Main Concourse',
+                totalTime: '6 minutes',
+                icon: '<path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/>',
+                steps: [
+                    {
+                        title: 'Head to Terminal B',
+                        description: 'Follow signs to main shopping concourse',
+                        time: '3 minutes',
+                        distance: '250m',
+                        icon: '<path d="M10 18l8-8-8-8v6H2v4h8v6z"/>',
+                        visualGuides: [
+                            { type: 'shopping', text: '🛍️ "SHOPPING"', description: 'Purple signs with shopping bag symbols' },
+                            { type: 'concourse', text: '🏪 "MAIN CONCOURSE"', description: 'Large directional signs to shopping area' }
+                        ]
+                    },
+                    {
+                        title: 'Enter Shopping District',
+                        description: 'Duty-free and retail stores',
+                        time: '2 minutes',
+                        distance: '150m',
+                        icon: '<path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z"/>',
+                        visualGuides: [
+                            { type: 'duty', text: '🌍 "DUTY FREE"', description: 'Blue and white duty-free shop signs' },
+                            { type: 'stores', text: '👜 Brand Logos', description: 'Individual store names and brand logos' }
+                        ]
+                    },
+                    {
+                        title: 'Browse Shops',
+                        description: 'Multiple retail options available',
+                        time: '1 minute',
+                        distance: '100m',
+                        icon: '<path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>',
+                        visualGuides: [
+                            { type: 'open', text: '🟢 "OPEN"', description: 'Green open signs in store windows' },
+                            { type: 'hours', text: '🕐 Store Hours', description: 'Operating hours posted on storefronts' }
+                        ],
+                        coupon: {
+                            title: 'Shopping Special',
+                            discount: '30% OFF',
+                            description: 'Duty-free shopping and souvenir stores',
+                            code: 'SHOP30'
+                        }
+                    }
+                ]
+            }
+        };
+
+        function navigateTo(destination) {
+            currentNavigation = navigationRoutes[destination];
+            if (currentNavigation) {
+                currentStep = 0;
+                openNavigationModal();
+                updateNavigationStep();
+            }
+        }
+
+        function openNavigationModal() {
+            document.getElementById('navigationModal').classList.remove('hidden');
+            // Update modal header
+            document.getElementById('navModalTitle').textContent = `Navigation to ${currentNavigation.name}`;
+            document.getElementById('navModalSubtitle').textContent = `${currentNavigation.location} • ${currentNavigation.totalTime} walk`;
+            document.getElementById('navModalIcon').innerHTML = currentNavigation.icon;
+            
+            // Create progress steps
+            updateProgressSteps();
+        }
+
+        function closeNavigation() {
+            document.getElementById('navigationModal').classList.add('hidden');
+            currentNavigation = null;
+            currentStep = 0;
+        }
+
+        function updateProgressSteps() {
+            const progressSteps = document.getElementById('progressSteps');
+            progressSteps.innerHTML = '';
+            
+            for (let i = 0; i < currentNavigation.steps.length; i++) {
+                const stepDiv = document.createElement('div');
+                stepDiv.className = `progress-step flex-1 h-2 rounded-full bg-gray-200 dark:bg-gray-600 ${i < currentStep ? 'completed' : i === currentStep ? 'active' : ''}`;
+                progressSteps.appendChild(stepDiv);
+            }
+        }
+
+        function updateNavigationStep() {
+            const step = currentNavigation.steps[currentStep];
+            
+            // Update progress
+            document.getElementById('progressText').textContent = `Step ${currentStep + 1} of ${currentNavigation.steps.length}`;
+            updateProgressSteps();
+            
+            // Update step content
+            document.getElementById('stepIcon').innerHTML = `<svg class="w-10 h-10 text-primary" fill="currentColor" viewBox="0 0 20 20">${step.icon}</svg>`;
+            document.getElementById('stepTitle').textContent = step.title;
+            document.getElementById('stepDescription').textContent = step.description;
+            document.getElementById('stepTime').textContent = step.time;
+            document.getElementById('stepDistance').textContent = step.distance;
+            
+            // Update visual guides
+            const visualGuides = document.getElementById('visualGuides');
+            visualGuides.innerHTML = '';
+            
+            step.visualGuides.forEach(guide => {
+                const guideDiv = document.createElement('div');
+                guideDiv.className = 'flex items-center p-2 bg-white dark:bg-gray-600 rounded-lg';
+                guideDiv.innerHTML = `
+                    <div class="w-3 h-3 rounded-full bg-${guide.type === 'blue' ? 'blue' : guide.type === 'green' ? 'green' : guide.type === 'yellow' ? 'yellow' : guide.type === 'red' ? 'red' : 'gray'}-500 mr-3"></div>
+                    <div class="flex-1">
+                        <div class="font-medium text-gray-900 dark:text-white text-sm">${guide.text}</div>
+                        <div class="text-xs text-gray-600 dark:text-gray-300">${guide.description}</div>
+                    </div>
+                `;
+                visualGuides.appendChild(guideDiv);
+            });
+            
+            // Update navigation buttons
+            document.getElementById('prevBtn').disabled = currentStep === 0;
+            document.getElementById('nextBtn').textContent = currentStep === currentNavigation.steps.length - 1 ? 'Complete ✓' : 'Next Step →';
+        }
+
+        function nextStep() {
+            if (currentStep < currentNavigation.steps.length - 1) {
+                currentStep++;
+                updateNavigationStep();
+            } else {
+                // Completed navigation
+                simulateArrival();
+            }
+        }
+
+        function previousStep() {
+            if (currentStep > 0) {
+                currentStep--;
+                updateNavigationStep();
+            }
+        }
+
+        function simulateArrival() {
+            const currentStepData = currentNavigation.steps[currentNavigation.steps.length - 1];
+            
+            // Check if this destination has a coupon
+            if (currentStepData.coupon) {
+                const coupon = currentStepData.coupon;
+                const redeemCoupon = confirm(`🎉 You've arrived at ${currentNavigation.name}!\n\n🎁 Special Offer Available:\n${coupon.title} - ${coupon.discount}\n${coupon.description}\n\nWould you like to redeem this coupon?\n\nCode: ${coupon.code}`);
+                
+                if (redeemCoupon) {
+                    alert(`✅ Coupon Redeemed Successfully!\n\n${coupon.title}\nDiscount: ${coupon.discount}\nCode: ${coupon.code}\n\n📱 Coupon saved to your digital wallet!\n🏪 Show this code at participating locations.`);
+                }
+            } else {
+                alert(`🎉 You've arrived at ${currentNavigation.name}!\n\nGreat job following the directions. In a real app, this would:\n• Mark location as visited\n• Update your location status\n• Show nearby amenities\n• Suggest next actions`);
+            }
+            closeNavigation();
+        }
+
+        // Coupon/Offer claim function
+        function claimOffer(offerType) {
+            const offers = {
+                // Original offers
+                'coffee': 'Coffee & Pastry 15% OFF',
+                'snack': 'Grab & Go Snacks 10% OFF', 
+                'restaurant': 'Full Dining 20% OFF',
+                'shopping': 'Duty-Free Shopping 25% OFF',
+                
+                // Extended time offers (6+ hours)
+                'uber-city': 'Uber City Tour 40% OFF',
+                'hotel': 'Day-Use Hotel Rooms 50% OFF',
+                'attractions': 'Local Attractions 30% OFF',
+                'parking-extended': 'Extended Parking 35% OFF',
+                'spa': 'Airport Spa & Wellness 25% OFF',
+                
+                // Long wait offers (1+ hours)
+                'uber-short': 'Quick Uber Trip 30% OFF',
+                'parking-long': 'Long-Term Parking 20% OFF',
+                'massage': 'Express Massage 15% OFF'
+            };
+
+            const offer = offers[offerType];
+            if (offer) {
+                // Show offer claimed popup (for prototype, just alert)
+                alert(`🎉 Offer Claimed!\n\n${offer}\n\nOffer code: TRAVEL${Math.random().toString(36).substr(2, 6).toUpperCase()}\n\n📍 Show this code at participating locations.\n\n(In production, this would save to your digital wallet)`);
+            }
+        }
+
+        // Toggle Insights Dropdown
+        let insightsOpen = true;
+        function toggleInsights() {
+            const dropdown = document.getElementById('insightsDropdown');
+            const icon = document.getElementById('dropdownIcon');
+            const buttonText = document.getElementById('insightButtonText');
+            
+            insightsOpen = !insightsOpen;
+            
+            if (insightsOpen) {
+                dropdown.classList.remove('hidden');
+                icon.style.transform = 'rotate(180deg)';
+                buttonText.textContent = 'Hide Recommendations';
+            } else {
+                dropdown.classList.add('hidden');
+                icon.style.transform = 'rotate(0deg)';
+                buttonText.textContent = 'View Recommendations';
+            }
+        }
+
+        // Demo function to test different boarding times - COMPLETELY REWRITTEN
+        function setBoardingTime(minutes) {
+            // Clear existing timer
+            if (timerInterval) {
+                clearInterval(timerInterval);
+            }
+            
+            // Set new boarding time
+            boardingTime = new Date();
+            boardingTime.setMinutes(boardingTime.getMinutes() + minutes);
+            
+            // Immediately update display once
+            updateTimer();
+            
+            // Visual feedback
+            const timerElement = document.getElementById('boardingTimer');
+            timerElement.style.transform = 'scale(1.05)';
+            timerElement.style.transition = 'transform 0.2s ease';
+            
+            setTimeout(() => {
+                timerElement.style.transform = 'scale(1)';
+                
+                // Restart timer after visual feedback
+                timerInterval = setInterval(updateTimer, 1000);
+            }, 200);
+            
+            // Console log for debugging
+            console.log(`Timer set to ${minutes} minutes. New boarding time:`, boardingTime);
+        }
+
+        // Location-aware journey functions
+        function showLocationModal() {
+            document.getElementById('locationModal').classList.remove('hidden');
+        }
+
+        function hideLocationModal() {
+            document.getElementById('locationModal').classList.add('hidden');
+        }
+
+        function showTransportModal() {
+            document.getElementById('transportModal').classList.remove('hidden');
+        }
+
+        function hideTransportModal() {
+            document.getElementById('transportModal').classList.add('hidden');
+        }
+
+        function setUserLocation(status) {
+            userLocation.status = status;
+            userLocation.hasAskedLocation = true;
+            hideLocationModal();
+
+            if (status === 'traveling') {
+                // Ask about transport mode for travelers
+                showTransportModal();
+            } else {
+                // Show appropriate recommendations based on location
+                updateLocationBasedInsights();
+            }
+        }
+
+        function setTransportMode(mode) {
+            userLocation.transportMode = mode;
+            hideTransportModal();
+            updateLocationBasedInsights();
+        }
+
+        function updateLocationBasedInsights() {
+            // Update insights based on user location and show appropriate checklist/recommendations
+            const timeLeft = boardingTime.getTime() - new Date().getTime();
+            
+            // Only update if we have time left (not in boarding active state)
+            if (timeLeft > 0) {
+                updateSmartInsights(timeLeft);
+            }
+        }
+
+        // Time-based location recommendations
+        function getRecommendedLocationForTime(timeLeft) {
+            const hours = timeLeft / (1000 * 60 * 60);
+            const minutes = timeLeft / (1000 * 60);
+            
+            if (minutes >= 120) { // 2+ hours
+                return { stage: 'traveling', message: 'heading to the airport', urgency: 'normal' };
+            } else if (minutes >= 60) { // 1+ hours
+                return { stage: 'parked', message: 'at the airport', urgency: 'normal' };
+            } else if (minutes >= 30) { // 30+ minutes
+                return { stage: 'security', message: 'past security checkpoint', urgency: 'warning' };
+            } else if (minutes >= 10) { // 10+ minutes
+                return { stage: 'inside', message: 'near your gate', urgency: 'warning' };
+            } else if (minutes >= 3) { // 3+ minutes
+                return { stage: 'inside', message: 'at Gate B7', urgency: 'urgent' };
+            } else {
+                return { stage: 'inside', message: 'boarding now', urgency: 'critical' };
+            }
+        }
+
+        function checkLocationTimeAlignment() {
+            const timeLeft = boardingTime.getTime() - new Date().getTime();
+            const recommended = getRecommendedLocationForTime(timeLeft);
+            
+            // Check if user's current location matches time recommendation
+            if (userLocation.status && userLocation.hasAskedLocation && timeLeft > 0) {
+                const isLocationAppropriate = checkLocationAppropriate(userLocation.status, recommended.stage, timeLeft);
+                return {
+                    recommended: recommended,
+                    isAppropriate: isLocationAppropriate,
+                    needsAlert: !isLocationAppropriate && recommended.urgency !== 'normal'
+                };
+            }
+            
+            return { recommended: recommended, isAppropriate: true, needsAlert: false };
+        }
+
+        function checkLocationAppropriate(currentLocation, recommendedLocation, timeLeft) {
+            const minutes = timeLeft / (1000 * 60);
+            
+            // Define location progression: traveling -> parked -> security -> inside
+            const locationOrder = ['traveling', 'parked', 'security', 'inside'];
+            const currentIndex = locationOrder.indexOf(currentLocation);
+            const recommendedIndex = locationOrder.indexOf(recommendedLocation);
+            
+            // User is behind schedule if they're at an earlier stage than recommended
+            if (currentIndex < recommendedIndex) {
+                return false; // Behind schedule
+            }
+            
+            // Special cases for being too early (not critical but worth noting)
+            if (minutes > 120 && currentLocation === 'inside') {
+                return false; // Way too early, might want to leave airport
+            }
+            
+            return true; // Location is appropriate
+        }
+
+        // Check if we should show journey workflow on first visit
+        function checkFirstTimeUser() {
+            if (!userLocation.hasAskedLocation && userLocation.isFirstTime) {
+                setTimeout(() => {
+                    startJourneyWorkflow();
+                }, 2000); // Show after 2 seconds
+            }
+        }
+
+        // Journey Workflow System
+        let workflowStep = 1;
+        let workflowData = {
+            location: null,
+            transportMode: null,
+            travelTime: null,
+            checkedItems: []
+        };
+
+        function startJourneyWorkflow() {
+            workflowStep = 1;
+            showJourneyModal();
+            updateWorkflowStep();
+        }
+
+        function showJourneyModal() {
+            document.getElementById('journeyModal').classList.remove('hidden');
+        }
+
+        function hideJourneyModal() {
+            document.getElementById('journeyModal').classList.add('hidden');
+        }
+
+        function updateWorkflowStep() {
+            const modal = document.getElementById('journeyModal');
+            const progressBar = document.getElementById('progressBar');
+            const progressCounter = document.getElementById('progressCounter');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalSubtitle = document.getElementById('modalSubtitle');
+            const modalContent = document.getElementById('modalContent');
+            const modalIcon = document.getElementById('modalIcon');
+            const prevBtn = document.getElementById('prevWorkflowBtn');
+            
+            // Update progress
+            const progress = (workflowStep / 3) * 100;
+            progressBar.style.width = `${progress}%`;
+            progressCounter.textContent = `${workflowStep}/3`;
+            
+            // Enable/disable back button
+            prevBtn.disabled = workflowStep === 1;
+            
+            // Update content based on step
+            switch(workflowStep) {
+                case 1:
+                    showLocationStep(modalTitle, modalSubtitle, modalContent, modalIcon);
+                    break;
+                case 2:
+                    showTransportStep(modalTitle, modalSubtitle, modalContent, modalIcon);
+                    break;
+                case 3:
+                    showFinalSetupStep(modalTitle, modalSubtitle, modalContent, modalIcon);
+                    break;
+            }
+        }
+
+        function showLocationStep(modalTitle, modalSubtitle, modalContent, modalIcon) {
+            modalTitle.textContent = '✈️ Where are you right now?';
+            modalSubtitle.textContent = 'Step 1 of 3 - Current location';
+            modalIcon.innerHTML = `<svg class="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"/>
+            </svg>`;
+            
+            modalContent.innerHTML = `
+                <div class="space-y-3">
+                    <button onclick="selectWorkflowLocation('traveling')" class="w-full bg-blue-50 dark:bg-blue-900 border-2 border-blue-200 dark:border-blue-700 hover:border-blue-400 dark:hover:border-blue-500 rounded-xl p-4 text-left transition-all duration-300">
+                        <div class="flex items-center">
+                            <div class="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center mr-4">
+                                <span class="text-white text-lg">🚗</span>
+                            </div>
+                            <div>
+                                <div class="font-bold text-gray-900 dark:text-white">On my way to the airport</div>
+                                <div class="text-sm text-gray-600 dark:text-gray-300">Traveling to the airport now</div>
+                            </div>
+                        </div>
+                    </button>
+
+                    <button onclick="selectWorkflowLocation('parked')" class="w-full bg-green-50 dark:bg-green-900 border-2 border-green-200 dark:border-green-700 hover:border-green-400 dark:hover:border-green-500 rounded-xl p-4 text-left transition-all duration-300">
+                        <div class="flex items-center">
+                            <div class="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center mr-4">
+                                <span class="text-white text-lg">🅿️</span>
+                            </div>
+                            <div>
+                                <div class="font-bold text-gray-900 dark:text-white">Parked at airport</div>
+                                <div class="text-sm text-gray-600 dark:text-gray-300">Already parked, heading to terminal</div>
+                            </div>
+                        </div>
+                    </button>
+
+                    <button onclick="selectWorkflowLocation('security')" class="w-full bg-yellow-50 dark:bg-yellow-900 border-2 border-yellow-200 dark:border-yellow-700 hover:border-yellow-400 dark:hover:border-yellow-500 rounded-xl p-4 text-left transition-all duration-300">
+                        <div class="flex items-center">
+                            <div class="w-12 h-12 bg-yellow-500 rounded-full flex items-center justify-center mr-4">
+                                <span class="text-white text-lg">🔒</span>
+                            </div>
+                            <div>
+                                <div class="font-bold text-gray-900 dark:text-white">Before security</div>
+                                <div class="text-sm text-gray-600 dark:text-gray-300">In terminal, haven't passed security yet</div>
+                            </div>
+                        </div>
+                    </button>
+
+                    <button onclick="selectWorkflowLocation('inside')" class="w-full bg-purple-50 dark:bg-purple-900 border-2 border-purple-200 dark:border-purple-700 hover:border-purple-400 dark:hover:border-purple-500 rounded-xl p-4 text-left transition-all duration-300">
+                        <div class="flex items-center">
+                            <div class="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center mr-4">
+                                <span class="text-white text-lg">✈️</span>
+                            </div>
+                            <div>
+                                <div class="font-bold text-gray-900 dark:text-white">Inside airport (past security)</div>
+                                <div class="text-sm text-gray-600 dark:text-gray-300">In departure area, ready to board</div>
+                            </div>
+                        </div>
+                    </button>
+                </div>
+            `;
+        }
+
+        function showTransportStep(modalTitle, modalSubtitle, modalContent, modalIcon) {
+            if (workflowData.location === 'traveling') {
+                modalTitle.textContent = '🚗 How are you getting there?';
+                modalSubtitle.textContent = 'Step 2 of 3 - Transportation method';
+                modalIcon.innerHTML = `<svg class="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/>
+                </svg>`;
+                
+                modalContent.innerHTML = `
+                    <div class="space-y-3">
+                        <button onclick="selectWorkflowTransport('driving')" class="w-full bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 rounded-xl p-4 text-left transition-all duration-300">
+                            <div class="flex items-center">
+                                <div class="w-12 h-12 bg-gray-600 rounded-full flex items-center justify-center mr-4">
+                                    <span class="text-white text-lg">🚗</span>
+                                </div>
+                                <div>
+                                    <div class="font-bold text-gray-900 dark:text-white">I'm driving</div>
+                                    <div class="text-sm text-gray-600 dark:text-gray-300">Need parking deals & car location saving</div>
+                                </div>
+                            </div>
+                        </button>
+
+                        <button onclick="selectWorkflowTransport('rideshare')" class="w-full bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 rounded-xl p-4 text-left transition-all duration-300">
+                            <div class="flex items-center">
+                                <div class="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center mr-4">
+                                    <span class="text-white text-lg">🚕</span>
+                                </div>
+                                <div>
+                                    <div class="font-bold text-gray-900 dark:text-white">Uber / Taxi / Rideshare</div>
+                                    <div class="text-sm text-gray-600 dark:text-gray-300">Get entertainment & arrival deals</div>
+                                </div>
+                            </div>
+                        </button>
+
+                        <button onclick="selectWorkflowTransport('public')" class="w-full bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 rounded-xl p-4 text-left transition-all duration-300">
+                            <div class="flex items-center">
+                                <div class="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center mr-4">
+                                    <span class="text-white text-lg">🚌</span>
+                                </div>
+                                <div>
+                                    <div class="font-bold text-gray-900 dark:text-white">Public transport / Friend</div>
+                                    <div class="text-sm text-gray-600 dark:text-gray-300">Show me airport services & entertainment</div>
+                                </div>
+                            </div>
+                        </button>
+                    </div>
+                `;
+            } else {
+                // Skip transport step for non-traveling users
+                nextWorkflowStep();
+            }
+        }
+
+        function showFinalSetupStep(modalTitle, modalSubtitle, modalContent, modalIcon) {
+            modalTitle.textContent = '🎯 Almost ready!';
+            modalSubtitle.textContent = 'Step 3 of 3 - Final setup';
+            modalIcon.innerHTML = `<svg class="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>`;
+            
+            const timeLeft = boardingTime.getTime() - new Date().getTime();
+            const recommended = getRecommendedLocationForTime(timeLeft);
+            const alignment = checkLocationTimeAlignment();
+            
+            let timeAdvice = '';
+            if (workflowData.location && alignment.needsAlert) {
+                timeAdvice = `
+                    <div class="bg-yellow-100 dark:bg-yellow-900 border-2 border-yellow-500 rounded-lg p-3 mb-4">
+                        <div class="flex items-center">
+                            <span class="text-lg mr-2">⚠️</span>
+                            <div>
+                                <div class="font-bold text-sm">Timing Notice</div>
+                                <div class="text-xs">Based on your boarding time, you should be ${recommended.message}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            modalContent.innerHTML = `
+                ${timeAdvice}
+                <div class="text-center mb-6">
+                    <div class="w-20 h-20 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span class="text-3xl">✅</span>
+                    </div>
+                    <h4 class="text-lg font-bold text-gray-900 dark:text-white mb-2">Perfect! You're all set</h4>
+                    <p class="text-gray-600 dark:text-gray-300 text-sm">Based on your location and timing, here's what we recommend:</p>
+                </div>
+
+                <div class="bg-blue-50 dark:bg-blue-900 rounded-lg p-4 mb-4">
+                    <h5 class="font-bold text-blue-900 dark:text-blue-100 mb-3">📋 Your Journey Summary:</h5>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex items-center justify-between">
+                            <span>📍 Current location:</span>
+                            <span class="font-medium">${getLocationName(workflowData.location)}</span>
+                        </div>
+                        ${workflowData.transportMode ? `
+                        <div class="flex items-center justify-between">
+                            <span>🚗 Transport:</span>
+                            <span class="font-medium">${getTransportName(workflowData.transportMode)}</span>
+                        </div>
+                        ` : ''}
+                        <div class="flex items-center justify-between">
+                            <span>⏰ Boarding in:</span>
+                            <span class="font-medium">${Math.floor((boardingTime.getTime() - new Date().getTime()) / (1000 * 60))} minutes</span>
+                        </div>
+                    </div>
+                </div>
+
+                <button onclick="completeWorkflow()" class="w-full bg-primary hover:bg-purple-600 text-white py-4 px-4 rounded-lg font-bold transition-colors flex items-center justify-center">
+                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    Start My Journey!
+                </button>
+                
+                <div class="mt-4 text-center">
+                    <button onclick="restartWorkflow()" class="text-sm text-gray-500 dark:text-gray-400 hover:text-primary transition-colors">
+                        ↺ Start over
+                    </button>
+                </div>
+            `;
+        }
+
+        function selectWorkflowLocation(location) {
+            workflowData.location = location;
+            nextWorkflowStep();
+        }
+
+        function selectWorkflowTransport(transport) {
+            workflowData.transportMode = transport;
+            nextWorkflowStep();
+        }
+
+        function nextWorkflowStep() {
+            if (workflowStep < 3) {
+                workflowStep++;
+                updateWorkflowStep();
+            }
+        }
+
+        function previousWorkflowStep() {
+            if (workflowStep > 1) {
+                workflowStep--;
+                updateWorkflowStep();
+            }
+        }
+
+        function completeWorkflow() {
+            // Set user location data
+            userLocation.status = workflowData.location;
+            userLocation.transportMode = workflowData.transportMode;
+            userLocation.hasAskedLocation = true;
+            userLocation.isFirstTime = false;
+            
+            // Hide modal and update insights
+            hideJourneyModal();
+            updateLocationBasedInsights();
+            
+            // Show success message
+            alert('🎉 Journey setup complete!\n\nYour personalized recommendations are now ready. Check the Smart Insights below your boarding pass for location-specific tips and offers.');
+        }
+
+        function skipWorkflow() {
+            userLocation.hasAskedLocation = true;
+            userLocation.isFirstTime = false;
+            hideJourneyModal();
+        }
+
+        function restartWorkflow() {
+            workflowStep = 1;
+            workflowData = {
+                location: null,
+                transportMode: null,
+                travelTime: null,
+                checkedItems: []
+            };
+            updateWorkflowStep();
+        }
+
+        function getLocationName(location) {
+            const names = {
+                'traveling': 'On the way',
+                'parked': 'Parked at airport',
+                'security': 'Before security',
+                'inside': 'Inside airport'
+            };
+            return names[location] || 'Unknown';
+        }
+
+        function getTransportName(transport) {
+            const names = {
+                'driving': 'Driving',
+                'rideshare': 'Rideshare/Taxi',
+                'public': 'Public transport'
+            };
+            return names[transport] || 'Unknown';
+        }
+
+        // Location-specific content based on user journey stage
+        function showLocationSpecificContent(buttonText, offerCounter, notificationDot, notificationDotStatic, insightTitle, insightDescription, insightIcon, insightActions) {
+            // Check time-location alignment first
+            const timeLeft = boardingTime.getTime() - new Date().getTime();
+            const alignment = checkLocationTimeAlignment();
+            
+            // Add time-based warning to the content if needed
+            let timeWarning = '';
+            if (alignment.needsAlert) {
+                const urgencyClass = alignment.recommended.urgency === 'urgent' ? 'bg-red-100 dark:bg-red-900 border-red-500' : 
+                                   alignment.recommended.urgency === 'warning' ? 'bg-yellow-100 dark:bg-yellow-900 border-yellow-500' : 
+                                   'bg-blue-100 dark:bg-blue-900 border-blue-500';
+                
+                const urgencyIcon = alignment.recommended.urgency === 'urgent' ? '🚨' : 
+                                   alignment.recommended.urgency === 'warning' ? '⚠️' : '📍';
+                
+                timeWarning = `
+                    <div class="${urgencyClass} border-2 rounded-lg p-3 mb-3">
+                        <div class="flex items-center">
+                            <span class="text-lg mr-2">${urgencyIcon}</span>
+                            <div>
+                                <div class="font-bold text-sm text-gray-900 dark:text-white">Time Check Alert!</div>
+                                <div class="text-xs text-gray-800 dark:text-gray-200">You should be ${alignment.recommended.message} by now</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            switch(userLocation.status) {
+                case 'traveling':
+                    showTravelingContent(buttonText, offerCounter, notificationDot, notificationDotStatic, insightTitle, insightDescription, insightIcon, insightActions, timeWarning);
+                    break;
+                case 'parked':
+                    showParkedContent(buttonText, offerCounter, notificationDot, notificationDotStatic, insightTitle, insightDescription, insightIcon, insightActions, timeWarning);
+                    break;
+                case 'security':
+                    showSecurityContent(buttonText, offerCounter, notificationDot, notificationDotStatic, insightTitle, insightDescription, insightIcon, insightActions, timeWarning);
+                    break;
+                case 'inside':
+                    showInsideContent(buttonText, offerCounter, notificationDot, notificationDotStatic, insightTitle, insightDescription, insightIcon, insightActions, timeWarning);
+                    break;
+                default:
+                    // Fallback to default content
+                    break;
+            }
+        }
+
+        function showTravelingContent(buttonText, offerCounter, notificationDot, notificationDotStatic, insightTitle, insightDescription, insightIcon, insightActions, timeWarning = '') {
+            buttonText.textContent = '📋 Travel Checklist Ready';
+            offerCounter.textContent = '4';
+            offerCounter.className = 'ml-2 bg-blue-400 text-blue-900 text-xs font-bold px-2 py-1 rounded-full animate-pulse';
+            notificationDot.className = 'absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full animate-ping';
+            notificationDotStatic.className = 'absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full';
+
+            insightTitle.textContent = '🚗 On Your Way - Quick Checklist!';
+            insightDescription.textContent = 'Make sure you have everything you need before reaching the airport.';
+            insightIcon.innerHTML = '<path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>';
+            
+            let actions = `
+                <div class="bg-blue-50 dark:bg-blue-900 rounded-lg p-3 mb-3">
+                    <h5 class="font-bold text-blue-900 dark:text-blue-100 mb-2">✅ Essential Checklist:</h5>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex items-center"><span class="mr-2">📱</span>Phone charged (80%+)</div>
+                        <div class="flex items-center"><span class="mr-2">🔌</span>Chargers packed</div>
+                        <div class="flex items-center"><span class="mr-2">🆔</span>ID/Passport ready</div>
+                        <div class="flex items-center"><span class="mr-2">🎫</span>Boarding pass saved</div>
+                    </div>
+                </div>
+            `;
+
+            if (userLocation.transportMode === 'driving') {
+                actions += `
+                    <button onclick="claimOffer('parking-advance')" class="w-full bg-gray-600 hover:bg-gray-700 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-between mb-2">
+                        <span>🅿️ Reserve Parking Spot</span>
+                        <span class="text-sm">Save 25%</span>
+                    </button>
+                    <button onclick="saveCarLocation()" class="w-full bg-blue-500 hover:bg-blue-600 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-between">
+                        <span>📍 Save Car Location (Auto)</span>
+                        <span class="text-sm">When parked</span>
+                    </button>
+                `;
+            } else if (userLocation.transportMode === 'rideshare') {
+                actions += `
+                    <button onclick="claimOffer('entertainment')" class="w-full bg-purple-500 hover:bg-purple-600 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-between mb-2">
+                        <span>🎮 Travel Games & Entertainment</span>
+                        <span class="text-sm">Free Access</span>
+                    </button>
+                    <button onclick="claimOffer('arrival-deals')" class="w-full bg-green-500 hover:bg-green-600 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-between">
+                        <span>🎁 Arrival Deals Preview</span>
+                        <span class="text-sm">See offers</span>
+                    </button>
+                `;
+            } else {
+                actions += `
+                    <button onclick="claimOffer('public-transport')" class="w-full bg-green-500 hover:bg-green-600 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-between mb-2">
+                        <span>🚌 Public Transport Guide</span>
+                        <span class="text-sm">Airport access</span>
+                    </button>
+                    <button onclick="claimOffer('terminal-services')" class="w-full bg-blue-500 hover:bg-blue-600 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-between">
+                        <span>🏢 Airport Services Preview</span>
+                        <span class="text-sm">What to expect</span>
+                    </button>
+                `;
+            }
+
+            insightActions.innerHTML = timeWarning + actions;
+        }
+
+        function showParkedContent(buttonText, offerCounter, notificationDot, notificationDotStatic, insightTitle, insightDescription, insightIcon, insightActions, timeWarning = '') {
+            buttonText.textContent = '🚶‍♂️ Terminal Navigation';
+            offerCounter.textContent = '3';
+            offerCounter.className = 'ml-2 bg-green-400 text-green-900 text-xs font-bold px-2 py-1 rounded-full animate-pulse';
+            notificationDot.className = 'absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-ping';
+            notificationDotStatic.className = 'absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full';
+
+            insightTitle.textContent = '🅿️ Parked - Heading to Terminal';
+            insightDescription.textContent = 'Your car location is saved! Quick options before security.';
+            insightIcon.innerHTML = '<path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>';
+            
+            insightActions.innerHTML = timeWarning + `
+                <div class="bg-green-50 dark:bg-green-900 rounded-lg p-3 mb-3">
+                    <div class="flex items-center text-green-800 dark:text-green-200">
+                        <span class="mr-2">📍</span>
+                        <span class="font-medium">Car saved: Level 3, Section A, Space A3</span>
+                    </div>
+                </div>
+                <button onclick="navigateTo('security')" class="w-full bg-blue-500 hover:bg-blue-600 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-between mb-2">
+                    <span>🚶‍♂️ Navigate to Terminal</span>
+                    <span class="text-sm">8 min walk</span>
+                </button>
+                <button onclick="claimOffer('pre-security-dining')" class="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-between mb-2">
+                    <span>🍽️ Pre-Security Dining</span>
+                    <span class="text-sm">15% OFF</span>
+                </button>
+                <button onclick="claimOffer('terminal-services')" class="w-full bg-purple-500 hover:bg-purple-600 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-between">
+                    <span>🛍️ Terminal Services</span>
+                    <span class="text-sm">View options</span>
+                </button>
+            `;
+        }
+
+        function showSecurityContent(buttonText, offerCounter, notificationDot, notificationDotStatic, insightTitle, insightDescription, insightIcon, insightActions, timeWarning = '') {
+            buttonText.textContent = '⚠️ Security Prep Guide';
+            offerCounter.textContent = '2';
+            offerCounter.className = 'ml-2 bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded-full animate-pulse';
+            notificationDot.className = 'absolute -top-1 -right-1 w-3 h-3 bg-yellow-500 rounded-full animate-ping';
+            notificationDotStatic.className = 'absolute -top-1 -right-1 w-3 h-3 bg-yellow-500 rounded-full';
+
+            insightTitle.textContent = '🔒 Before Security - Important!';
+            insightDescription.textContent = 'Check these items before going through security to avoid delays.';
+            insightIcon.innerHTML = '<path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>';
+            
+            insightActions.innerHTML = timeWarning + `
+                <div class="bg-yellow-50 dark:bg-yellow-900 rounded-lg p-3 mb-3">
+                    <h5 class="font-bold text-yellow-900 dark:text-yellow-100 mb-2">⚠️ Cannot Bring Through Security:</h5>
+                    <div class="space-y-1 text-sm text-yellow-800 dark:text-yellow-200">
+                        <div>💧 Liquids over 100ml</div>
+                        <div>✂️ Sharp objects (scissors, knives)</div>
+                        <div>🔧 Tools and equipment</div>
+                        <div>🧴 Aerosols (except toiletries under 100ml)</div>
+                        <div>🔋 Spare lithium batteries (carry-on only)</div>
+                    </div>
+                </div>
+                <button onclick="claimOffer('liquid-disposal')" class="w-full bg-yellow-500 hover:bg-yellow-600 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-between mb-2">
+                    <span>🗑️ Liquid Disposal Station</span>
+                    <span class="text-sm">Before security</span>
+                </button>
+                <button onclick="navigateTo('security-fast-track')" class="w-full bg-blue-500 hover:bg-blue-600 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-between">
+                    <span>⚡ Security Fast Track</span>
+                    <span class="text-sm">$15 upgrade</span>
+                </button>
+            `;
+        }
+
+        function showInsideContent(buttonText, offerCounter, notificationDot, notificationDotStatic, insightTitle, insightDescription, insightIcon, insightActions, timeWarning = '') {
+            buttonText.textContent = '✈️ Inside Airport Options';
+            offerCounter.textContent = '5';
+            offerCounter.className = 'ml-2 bg-purple-400 text-purple-900 text-xs font-bold px-2 py-1 rounded-full animate-pulse';
+            notificationDot.className = 'absolute -top-1 -right-1 w-3 h-3 bg-purple-500 rounded-full animate-ping';
+            notificationDotStatic.className = 'absolute -top-1 -right-1 w-3 h-3 bg-purple-500 rounded-full';
+
+            insightTitle.textContent = '✈️ You\'re Inside - Enjoy the Airport!';
+            insightDescription.textContent = 'Past security! Relax and explore what the departure area has to offer.';
+            insightIcon.innerHTML = '<path d="M12 2l3.09 6.26L22 9l-5 4.87L18.18 21 12 17.77 5.82 21 7 13.87 2 9l6.91-.74L12 2z"/>';
+            
+            insightActions.innerHTML = `
+                <button onclick="navigateTo('gate')" class="w-full bg-red-500 hover:bg-red-600 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-between mb-2">
+                    <span>🚪 Navigate to Gate B7</span>
+                    <span class="text-sm">8 min walk</span>
+                </button>
+                <button onclick="claimOffer('duty-free')" class="w-full bg-blue-500 hover:bg-blue-600 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-between mb-2">
+                    <span>🛍️ Duty-Free Shopping</span>
+                    <span class="text-sm">25% OFF</span>
+                </button>
+                <button onclick="navigateTo('lounge')" class="w-full bg-purple-500 hover:bg-purple-600 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-between mb-2">
+                    <span>🛋️ Premium Lounge Access</span>
+                    <span class="text-sm">$15 day pass</span>
+                </button>
+                <button onclick="navigateTo('food')" class="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-between mb-2">
+                    <span>🍽️ Airport Restaurants</span>
+                    <span class="text-sm">5 min walk</span>
+                </button>
+                <button onclick="navigateTo('restroom')" class="w-full bg-green-500 hover:bg-green-600 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-between">
+                    <span>🚻 Nearest Restroom</span>
+                    <span class="text-sm">2 min walk</span>
+                </button>
+            `;
+        }
+
+        // Additional helper functions for location-specific features
+        function saveCarLocation() {
+            userLocation.parkingSpot = 'Level 3, Section A, Space A3';
+            alert('🚗 Car Location Saved!\n\nLevel 3, Section A, Space A3\n\n📱 Location will be automatically saved when you park and added to your digital wallet for easy retrieval.');
+        }
+
+        // Location changer function - opens workflow for easy demo
+        function openLocationChanger() {
+            // Reset workflow to allow location change
+            workflowStep = 1;
+            workflowData = {
+                location: null,
+                transportMode: null,
+                travelTime: null,
+                checkedItems: []
+            };
+            
+            // Show the journey modal for location selection
+            showJourneyModal();
+            updateWorkflowStep();
+        }
+
+        // Enhanced Demo Controls Setup
+        function setupEnhancedDemoControls() {
+            // Journey Stage Buttons
+            document.getElementById('stage1').addEventListener('click', () => {
+                setDemoScenario('pre-trip', 420, 'traveling', 'driving'); // 7 hours - plenty of time for city exploration
+                showDemoFeedback('🏠 Pre-Trip Planning', 'Experience city exploration and transportation booking opportunities');
+            });
+            
+            document.getElementById('stage2').addEventListener('click', () => {
+                setDemoScenario('airport-arrival', 105, 'parked', 'driving'); // 1h 45min - typical early arrival
+                showDemoFeedback('🛬 Airport Arrival', 'Smart wayfinding and location-aware services in action');
+            });
+            
+            document.getElementById('stage3').addEventListener('click', () => {
+                setDemoScenario('wait-time', 42, 'inside', null); // 42 minutes - perfect wait time optimization
+                showDemoFeedback('⏰ Wait Time Optimization', 'Personalized experiences based on available time');
+            });
+            
+            document.getElementById('stage4').addEventListener('click', () => {
+                setDemoScenario('boarding', 12, 'inside', null); // 12 minutes - boarding announcement time
+                showDemoFeedback('✈️ Boarding Time', 'Last-minute services and urgent navigation');
+            });
+
+            // Passenger Persona Buttons
+            document.getElementById('persona-business').addEventListener('click', () => {
+                setPersonaDemo('business');
+                showDemoFeedback('💼 Business Traveler', 'Efficiency-focused recommendations and premium services');
+            });
+            
+            document.getElementById('persona-family').addEventListener('click', () => {
+                setPersonaDemo('family');
+                showDemoFeedback('👨‍👩‍👧‍👦 Family Traveler', 'Accessibility features and family-friendly services');
+            });
+            
+            document.getElementById('persona-leisure').addEventListener('click', () => {
+                setPersonaDemo('leisure');
+                showDemoFeedback('🏖️ Leisure Traveler', 'Experience-focused recommendations and discovery options');
+            });
+
+            // Quick Demo Scenario Buttons
+            document.getElementById('demo-panic').addEventListener('click', () => {
+                setDemoScenario('late-passenger', 3, 'security', null);
+                showDemoFeedback('🚨 Late Passenger Scenario', 'Emergency navigation and last-minute assistance');
+            });
+            
+            document.getElementById('demo-early').addEventListener('click', () => {
+                setDemoScenario('early-explorer', 360, 'traveling', 'rideshare');
+                showDemoFeedback('🎯 Early Explorer', 'City exploration and premium experiences');
+            });
+            
+            document.getElementById('demo-normal').addEventListener('click', () => {
+                setDemoScenario('perfect-timing', 30, 'inside', null);
+                showDemoFeedback('✅ Perfect Timing', 'Optimal boarding preparation and recommendations');
+            });
+            
+            document.getElementById('demo-lost').addEventListener('click', () => {
+                setDemoScenario('lost-navigator', 15, 'security', null);
+                showDemoFeedback('🗺️ Lost Navigator', 'Enhanced wayfinding and accessibility support');
+            });
+            
+            document.getElementById('demo-premium').addEventListener('click', () => {
+                setDemoScenario('premium-experience', 120, 'inside', null);
+                showDemoFeedback('💎 Premium Experience', 'Luxury services and VIP recommendations');
+            });
+
+            // Security Mode Button
+            document.getElementById('demo-security').addEventListener('click', () => {
+                setSecurityMode();
+                showDemoFeedback('🔒 Security Mode', 'Comprehensive security guidelines and allowed items');
+            });
+
+            // Lock Screen Notification Buttons
+            document.getElementById('notification-early').addEventListener('click', () => {
+                showLockScreenNotification('early-bird');
+                showDemoFeedback('📱 Early Bird Notification', 'City exploration and entertainment recommendations');
+            });
+
+            document.getElementById('notification-travel').addEventListener('click', () => {
+                showLockScreenNotification('travel-time');
+                showDemoFeedback('🚗 Travel Time Alert', 'Perfect timing to head to the airport');
+            });
+
+            document.getElementById('notification-security').addEventListener('click', () => {
+                showLockScreenNotification('security-alert');
+                showDemoFeedback('🔒 Security Alert', 'Important reminders before security checkpoint');
+            });
+
+            document.getElementById('notification-boarding').addEventListener('click', () => {
+                showLockScreenNotification('boarding-active');
+                showDemoFeedback('✈️ Boarding Active', 'Urgent boarding notification and gate directions');
+            });
+
+            document.getElementById('notification-deals').addEventListener('click', () => {
+                showLockScreenNotification('special-offers');
+                showDemoFeedback('🎁 Special Offers', 'Personalized deals based on your location');
+            });
+
+            document.getElementById('notification-gate').addEventListener('click', () => {
+                showLockScreenNotification('gate-change');
+                showDemoFeedback('🚪 Gate Change Alert', 'Important flight update and new directions');
+            });
+
+            // Reset Demo Button
+            document.getElementById('demo-reset').addEventListener('click', () => {
+                resetDemo();
+                showDemoFeedback('🔄 Demo Reset', 'All settings restored to default state');
+            });
+        }
+
+        // Demo Scenario Functions
+        function setDemoScenario(scenario, minutes, location, transport) {
+            // Set boarding time
+            setBoardingTime(minutes);
+            
+            // Set location and transport if provided
+            if (location) {
+                userLocation.status = location;
+                userLocation.hasAskedLocation = true;
+                userLocation.isFirstTime = false;
+                
+                if (transport) {
+                    userLocation.transportMode = transport;
+                }
+                
+                // Update insights immediately
+                updateLocationBasedInsights();
+            }
+            
+            // Add scenario-specific customizations
+            customizeForScenario(scenario);
+        }
+
+        function setPersonaDemo(persona) {
+            switch(persona) {
+                case 'business':
+                    setDemoScenario('business-focused', 45, 'inside', null);
+                    // Could add business-specific customizations here
+                    break;
+                case 'family':
+                    setDemoScenario('family-friendly', 60, 'parked', 'driving');
+                    // Could add family-specific customizations here
+                    break;
+                case 'leisure':
+                    setDemoScenario('leisure-focused', 120, 'inside', null);
+                    // Could add leisure-specific customizations here
+                    break;
+            }
+        }
+
+        function customizeForScenario(scenario) {
+            // Add scenario-specific behaviors
+            switch(scenario) {
+                case 'late-passenger':
+                    // Show urgent recommendations immediately
+                    if (!insightsOpen) {
+                        toggleInsights();
+                    }
+                    break;
+                case 'early-explorer':
+                    // Focus on city exploration offers
+                    break;
+                case 'lost-navigator':
+                    // Emphasize navigation features
+                    break;
+                case 'premium-experience':
+                    // Highlight premium services
+                    break;
+            }
+        }
+
+        function resetDemo() {
+            // Reset timer to default
+            setBoardingTime(30);
+            
+            // Reset location data
+            userLocation = {
+                status: null,
+                isFirstTime: true,
+                transportMode: null,
+                parkingSpot: null,
+                hasAskedLocation: false
+            };
+            
+            // Close insights if open
+            if (insightsOpen) {
+                toggleInsights();
+            }
+            
+            // Update display
+            updateSmartInsights(boardingTime.getTime() - new Date().getTime());
+        }
+
+        // Security Mode - Shows comprehensive security guidelines
+        function setSecurityMode() {
+            // Set appropriate timing for security scenario
+            setBoardingTime(45); // 45 minutes - good time for security prep
+            
+            // Set location to security area but mark as special security mode
+            userLocation.status = 'security-guide';
+            userLocation.hasAskedLocation = true;
+            userLocation.isFirstTime = false;
+            
+            // Force show insights immediately
+            if (!insightsOpen) {
+                toggleInsights();
+            }
+            
+            // Update insights with security mode content
+            updateSmartInsights(45 * 60 * 1000); // 45 minutes in milliseconds
+        }
+
+        function showSecurityModeContent() {
+            const buttonText = document.getElementById('insightButtonText');
+            const offerCounter = document.getElementById('offerCounter');
+            const notificationDot = document.getElementById('notificationDot');
+            const notificationDotStatic = document.getElementById('notificationDotStatic');
+            const insightTitle = document.getElementById('insightTitle');
+            const insightDescription = document.getElementById('insightDescription');
+            const insightIcon = document.getElementById('insightIcon');
+            const insightActions = document.getElementById('insightActions');
+
+            buttonText.textContent = '🔒 Security Guidelines';
+            offerCounter.textContent = 'GUIDE';
+            offerCounter.className = 'ml-2 bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded-full';
+            notificationDot.className = 'absolute -top-1 -right-1 w-3 h-3 bg-yellow-500 rounded-full animate-ping';
+            notificationDotStatic.className = 'absolute -top-1 -right-1 w-3 h-3 bg-yellow-500 rounded-full';
+
+            insightTitle.textContent = '🔒 Security Checkpoint Guidelines';
+            insightDescription.textContent = 'Complete guide to TSA security rules - what you can and cannot bring through airport security.';
+            insightIcon.innerHTML = '<path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>';
+            
+            insightActions.innerHTML = `
+                <!-- NOT ALLOWED Items -->
+                <div class="bg-red-50 dark:bg-red-900 border-2 border-red-500 rounded-lg p-4 mb-4">
+                    <h5 class="font-bold text-red-900 dark:text-red-100 mb-3 flex items-center">
+                        <span class="mr-2">🚫</span>CANNOT BRING (In Carry-on)
+                    </h5>
+                    <div class="space-y-3 text-sm">
+                        <div class="bg-white dark:bg-red-800 rounded-lg p-3">
+                            <div class="font-semibold text-red-800 dark:text-red-200 mb-2">💧 Liquids, Gels & Aerosols</div>
+                            <div class="text-red-700 dark:text-red-300 space-y-1">
+                                <div>• Over 100ml (3.4 oz) containers</div>
+                                <div>• Total over 1 liter in carry-on</div>
+                                <div>• Must fit in 1 quart-sized bag</div>
+                            </div>
+                        </div>
+                        <div class="bg-white dark:bg-red-800 rounded-lg p-3">
+                            <div class="font-semibold text-red-800 dark:text-red-200 mb-2">🔪 Sharp Objects</div>
+                            <div class="text-red-700 dark:text-red-300 space-y-1">
+                                <div>• Knives of any length</div>
+                                <div>• Scissors over 4 inches</div>
+                                <div>• Razor blades (not in cartridges)</div>
+                                <div>• Box cutters, utility knives</div>
+                            </div>
+                        </div>
+                        <div class="bg-white dark:bg-red-800 rounded-lg p-3">
+                            <div class="font-semibold text-red-800 dark:text-red-200 mb-2">🔧 Tools & Weapons</div>
+                            <div class="text-red-700 dark:text-red-300 space-y-1">
+                                <div>• Screwdrivers over 7 inches</div>
+                                <div>• Hammers, wrenches, pliers</div>
+                                <div>• Baseball bats, golf clubs</div>
+                                <div>• Firearms, ammunition</div>
+                            </div>
+                        </div>
+                        <div class="bg-white dark:bg-red-800 rounded-lg p-3">
+                            <div class="font-semibold text-red-800 dark:text-red-200 mb-2">⚡ Electronics & Batteries</div>
+                            <div class="text-red-700 dark:text-red-300 space-y-1">
+                                <div>• Spare lithium batteries in checked bags</div>
+                                <div>• E-cigarettes in checked luggage</div>
+                                <div>• Damaged/recalled batteries</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ALLOWED Items -->
+                <div class="bg-green-50 dark:bg-green-900 border-2 border-green-500 rounded-lg p-4 mb-4">
+                    <h5 class="font-bold text-green-900 dark:text-green-100 mb-3 flex items-center">
+                        <span class="mr-2">✅</span>CAN BRING (In Carry-on)
+                    </h5>
+                    <div class="space-y-3 text-sm">
+                        <div class="bg-white dark:bg-green-800 rounded-lg p-3">
+                            <div class="font-semibold text-green-800 dark:text-green-200 mb-2">💧 Liquids (Allowed)</div>
+                            <div class="text-green-700 dark:text-green-300 space-y-1">
+                                <div>• Containers 100ml (3.4 oz) or smaller</div>
+                                <div>• Baby formula, breast milk</div>
+                                <div>• Prescription medications</div>
+                                <div>• Contact lens solution</div>
+                            </div>
+                        </div>
+                        <div class="bg-white dark:bg-green-800 rounded-lg p-3">
+                            <div class="font-semibold text-green-800 dark:text-green-200 mb-2">📱 Electronics</div>
+                            <div class="text-green-700 dark:text-green-300 space-y-1">
+                                <div>• Phones, tablets, laptops</div>
+                                <div>• Cameras, chargers</div>
+                                <div>• Headphones, speakers</div>
+                                <div>• Power banks under 100Wh</div>
+                            </div>
+                        </div>
+                        <div class="bg-white dark:bg-green-800 rounded-lg p-3">
+                            <div class="font-semibold text-green-800 dark:text-green-200 mb-2">🍕 Food & Snacks</div>
+                            <div class="text-green-700 dark:text-green-300 space-y-1">
+                                <div>• Solid foods (sandwiches, fruit)</div>
+                                <div>• Empty water bottles</div>
+                                <div>• Candy, cookies, chips</div>
+                                <div>• Dry goods (tea, coffee)</div>
+                            </div>
+                        </div>
+                        <div class="bg-white dark:bg-green-800 rounded-lg p-3">
+                            <div class="font-semibold text-green-800 dark:text-green-200 mb-2">👔 Personal Items</div>
+                            <div class="text-green-700 dark:text-green-300 space-y-1">
+                                <div>• Clothing, shoes, books</div>
+                                <div>• Jewelry, watches</div>
+                                <div>• Eyeglasses, sunglasses</div>
+                                <div>• Umbrellas, walking canes</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Special Rules -->
+                <div class="bg-blue-50 dark:bg-blue-900 border-2 border-blue-500 rounded-lg p-4 mb-4">
+                    <h5 class="font-bold text-blue-900 dark:text-blue-100 mb-3 flex items-center">
+                        <span class="mr-2">ℹ️</span>SPECIAL RULES
+                    </h5>
+                    <div class="space-y-2 text-sm text-blue-800 dark:text-blue-200">
+                        <div class="flex items-start">
+                            <span class="mr-2 mt-1">🧴</span>
+                            <div><strong>3-1-1 Liquids Rule:</strong> 3.4 oz containers, 1 quart bag, 1 bag per passenger</div>
+                        </div>
+                        <div class="flex items-start">
+                            <span class="mr-2 mt-1">💻</span>
+                            <div><strong>Electronics:</strong> Laptops/tablets must be removed from bags at security</div>
+                        </div>
+                        <div class="flex items-start">
+                            <span class="mr-2 mt-1">👞</span>
+                            <div><strong>Shoes:</strong> May need to be removed (boots, sneakers over ankle height)</div>
+                        </div>
+                        <div class="flex items-start">
+                            <span class="mr-2 mt-1">🧥</span>
+                            <div><strong>Jackets:</strong> Outerwear must be removed and placed in bins</div>
+                        </div>
+                        <div class="flex items-start">
+                            <span class="mr-2 mt-1">💎</span>
+                            <div><strong>Jewelry:</strong> Large metal jewelry should be removed before screening</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Action Buttons -->
+                <div class="space-y-2">
+                    <button onclick="claimOffer('liquid-disposal')" class="w-full bg-yellow-600 hover:bg-yellow-700 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-between">
+                        <span>🗑️ Find Liquid Disposal Station</span>
+                        <span class="text-sm">Before security</span>
+                    </button>
+                    <button onclick="claimOffer('tsa-precheck')" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-between">
+                        <span>⚡ TSA PreCheck Application</span>
+                        <span class="text-sm">Skip lines</span>
+                    </button>
+                    <button onclick="navigateTo('security-checkpoint')" class="w-full bg-green-600 hover:bg-green-700 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-between">
+                        <span>🚶‍♂️ Navigate to Security</span>
+                        <span class="text-sm">5 min walk</span>
+                    </button>
+                </div>
+            `;
+        }
+
+        // Journey Timeline Update Function
+        function updateJourneyTimeline(timeLeft) {
+            const minutes = timeLeft / (1000 * 60);
+            
+            // Determine which stage user should be at based on time remaining
+            let currentStage, stageText, progressPercentage;
+            
+            if (minutes >= 120) { // 2+ hours - should be traveling
+                currentStage = 'traveling';
+                stageText = 'On the way to the airport';
+                progressPercentage = 0;
+            } else if (minutes >= 60) { // 1-2 hours - should be at airport
+                currentStage = 'airport';
+                stageText = 'At the airport before security';
+                progressPercentage = 33.33;
+            } else if (minutes >= 15) { // 15-60 minutes - should be past security
+                currentStage = 'security';
+                stageText = 'Passed security';
+                progressPercentage = 66.66;
+            } else { // Less than 15 minutes - should be near gate
+                currentStage = 'gate';
+                stageText = 'Near the gate';
+                progressPercentage = 100;
+            }
+            
+            // Update current stage text
+            document.getElementById('currentStageText').textContent = stageText;
+            
+            // Update timeline progress
+            document.getElementById('timelineProgress').style.width = `${progressPercentage}%`;
+            
+            // Update step states
+            const steps = ['step-traveling', 'step-airport', 'step-security', 'step-gate'];
+            const stageOrder = ['traveling', 'airport', 'security', 'gate'];
+            const currentStageIndex = stageOrder.indexOf(currentStage);
+            
+            steps.forEach((stepId, index) => {
+                const stepElement = document.getElementById(stepId);
+                const circle = stepElement.querySelector('div');
+                
+                // Reset classes
+                circle.className = 'w-6 h-6 lg:w-8 lg:h-8 rounded-full border-2 border-white flex items-center justify-center mb-2 transition-all duration-300';
+                
+                if (index < currentStageIndex) {
+                    // Completed stage
+                    circle.className += ' bg-white text-green-600';
+                    stepElement.style.opacity = '0.7';
+                } else if (index === currentStageIndex) {
+                    // Current stage
+                    circle.className += ' bg-yellow-400 text-gray-900 border-yellow-400 scale-110';
+                    stepElement.style.opacity = '1';
+                } else {
+                    // Future stage
+                    circle.className += ' bg-white bg-opacity-20';
+                    stepElement.style.opacity = '0.5';
+                }
+            });
+        }
+
+        function showDemoFeedback(title, description) {
+            // Create and show a temporary feedback message
+            const feedback = document.createElement('div');
+            feedback.className = 'fixed top-24 left-1/2 transform -translate-x-1/2 bg-primary text-white px-6 py-3 rounded-xl shadow-lg z-50 animate-fade-in-up';
+            feedback.innerHTML = `
+                <div class="text-center">
+                    <div class="font-bold">${title}</div>
+                    <div class="text-sm opacity-90">${description}</div>
+                </div>
+            `;
+            
+            document.body.appendChild(feedback);
+            
+            // Remove after 3 seconds
+            setTimeout(() => {
+                feedback.remove();
+            }, 3000);
+        }
+
+        // Lock Screen Notification System
+        function showLockScreenNotification(notificationType) {
+            document.getElementById('lockScreenModal').classList.remove('hidden');
+            
+            const notificationsContainer = document.getElementById('lockScreenNotifications');
+            notificationsContainer.innerHTML = '';
+            
+            // Get notification data based on type
+            const notificationData = getLockScreenNotificationData(notificationType);
+            
+            // Add notifications with staggered animation
+            notificationData.forEach((notification, index) => {
+                setTimeout(() => {
+                    addNotificationToLockScreen(notification, index);
+                }, index * 500); // 500ms delay between notifications
+            });
+        }
+
+        function getLockScreenNotificationData(type) {
+            const notifications = {
+                'early-bird': [
+                    {
+                        app: 'Air-Flow',
+                        icon: '✈️',
+                        title: 'City Adventure Awaits!',
+                        message: 'You have 6 hours before boarding. Explore NYC with these exclusive deals!',
+                        time: '6h',
+                        actionButton: 'View Deals',
+                        bgColor: 'bg-blue-600'
+                    },
+                    {
+                        app: 'Air-Flow',
+                        icon: '🎁',
+                        title: 'Special Offers Unlocked',
+                        message: 'Hotel day rooms 50% off • City tours 40% off • Premium dining 25% off',
+                        time: '6h',
+                        actionButton: 'Claim Now',
+                        bgColor: 'bg-purple-600'
+                    }
+                ],
+                'travel-time': [
+                    {
+                        app: 'Air-Flow',
+                        icon: '🚗',
+                        title: 'Time to Head to Airport',
+                        message: 'Perfect timing! Leave now for stress-free arrival. Parking spot reserved.',
+                        time: '2h',
+                        actionButton: 'Get Directions',
+                        bgColor: 'bg-green-600'
+                    },
+                    {
+                        app: 'Air-Flow',
+                        icon: '📱',
+                        title: 'Travel Checklist Ready',
+                        message: 'Quick reminder: ID, boarding pass, phone charger. All set!',
+                        time: '2h',
+                        actionButton: 'View List',
+                        bgColor: 'bg-blue-600'
+                    }
+                ],
+                'security-alert': [
+                    {
+                        app: 'Air-Flow',
+                        icon: '🔒',
+                        title: 'Security Checkpoint Tips',
+                        message: 'Remove liquids over 100ml before security. Fast-track available for $15.',
+                        time: '1h',
+                        actionButton: 'Learn More',
+                        bgColor: 'bg-yellow-600'
+                    },
+                    {
+                        app: 'Air-Flow',
+                        icon: '⚡',
+                        title: 'Skip the Lines',
+                        message: 'Security wait time: 25 min. Upgrade to fast-track and save time!',
+                        time: '1h',
+                        actionButton: 'Upgrade',
+                        bgColor: 'bg-orange-600'
+                    }
+                ],
+                'boarding-active': [
+                    {
+                        app: 'Air-Flow',
+                        icon: '✈️',
+                        title: 'BOARDING NOW - Gate B7',
+                        message: 'Your flight is boarding! Follow the blue arrows to Gate B7 immediately.',
+                        time: 'now',
+                        actionButton: 'Navigate',
+                        bgColor: 'bg-red-600'
+                    },
+                    {
+                        app: 'Air-Flow',
+                        icon: '🚨',
+                        title: 'Don\'t Miss Your Flight!',
+                        message: 'Priority boarding queue available. Show this notification to gate agent.',
+                        time: 'now',
+                        actionButton: 'Show Pass',
+                        bgColor: 'bg-red-700'
+                    }
+                ],
+                'special-offers': [
+                    {
+                        app: 'Air-Flow',
+                        icon: '🎁',
+                        title: 'Personal Offers Just for You',
+                        message: 'Premium lounge access $15 • Duty-free 25% off • Express massage 20% off',
+                        time: 'now',
+                        actionButton: 'Claim Deals',
+                        bgColor: 'bg-purple-600'
+                    },
+                    {
+                        app: 'Air-Flow',
+                        icon: '🍽️',
+                        title: 'Hungry? We Got You!',
+                        message: 'Food court special: 20% off all meals. Limited time offer at Terminal B.',
+                        time: 'now',
+                        actionButton: 'Order Now',
+                        bgColor: 'bg-orange-600'
+                    }
+                ],
+                'gate-change': [
+                    {
+                        app: 'Air-Flow',
+                        icon: '🚪',
+                        title: 'GATE CHANGE ALERT',
+                        message: 'Flight SL 2847 moved from B7 to B12. New boarding time: 14:15.',
+                        time: 'now',
+                        actionButton: 'Navigate',
+                        bgColor: 'bg-red-600'
+                    },
+                    {
+                        app: 'Air-Flow',
+                        icon: '⚠️',
+                        title: 'Updated Flight Info',
+                        message: 'Gate B12 • Terminal B • 8 min walk • Updated boarding pass sent.',
+                        time: 'now',
+                        actionButton: 'View Pass',
+                        bgColor: 'bg-orange-600'
+                    }
+                ]
+            };
+            
+            return notifications[type] || [];
+        }
+
+        function addNotificationToLockScreen(notification, index) {
+            const notificationsContainer = document.getElementById('lockScreenNotifications');
+            
+            const notificationDiv = document.createElement('div');
+            notificationDiv.className = `${notification.bgColor} bg-opacity-95 backdrop-blur-md rounded-2xl p-4 shadow-lg border border-white border-opacity-20 transform transition-all duration-500 translate-y-4 opacity-0`;
+            
+            notificationDiv.innerHTML = `
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center">
+                        <div class="w-8 h-8 bg-white bg-opacity-20 rounded-lg flex items-center justify-center mr-3">
+                            <span class="text-lg">${notification.icon}</span>
+                        </div>
+                        <div>
+                            <div class="text-white font-semibold text-sm">${notification.app}</div>
+                            <div class="text-white text-opacity-80 text-xs">${notification.time} ago</div>
+                        </div>
+                    </div>
+                    <div class="text-white text-opacity-60 text-xs">now</div>
+                </div>
+                
+                <div class="mb-3">
+                    <div class="text-white font-bold text-sm mb-1">${notification.title}</div>
+                    <div class="text-white text-opacity-90 text-xs leading-relaxed">${notification.message}</div>
+                </div>
+                
+                <div class="flex space-x-2">
+                    <button onclick="handleNotificationAction('${notification.actionButton}')" class="flex-1 bg-white bg-opacity-20 hover:bg-opacity-30 text-white text-xs font-semibold py-2 px-3 rounded-lg transition-colors">
+                        ${notification.actionButton}
+                    </button>
+                    <button onclick="dismissNotification(this)" class="bg-white bg-opacity-10 hover:bg-opacity-20 text-white text-xs py-2 px-3 rounded-lg transition-colors">
+                        Dismiss
+                    </button>
+                </div>
+            `;
+            
+            notificationsContainer.appendChild(notificationDiv);
+            
+            // Trigger animation
+            setTimeout(() => {
+                notificationDiv.classList.remove('translate-y-4', 'opacity-0');
+                notificationDiv.classList.add('translate-y-0', 'opacity-100');
+            }, 100);
+        }
+
+        function closeLockScreenNotification() {
+            document.getElementById('lockScreenModal').classList.add('hidden');
+        }
+
+        function handleNotificationAction(action) {
+            // Simulate different actions based on button text
+            const actions = {
+                'View Deals': '🎁 Opening exclusive city deals...',
+                'Claim Now': '✅ Deals saved to your wallet!',
+                'Get Directions': '🗺️ Opening navigation to airport...',
+                'View List': '📋 Travel checklist displayed',
+                'Learn More': '📖 Security guidelines opened',
+                'Upgrade': '⚡ Fast-track security upgrade purchased!',
+                'Navigate': '🚶‍♂️ Opening gate navigation...',
+                'Show Pass': '🎫 Boarding pass displayed',
+                'Claim Deals': '🎁 Personal offers claimed!',
+                'Order Now': '🍽️ Food court menu opened',
+                'View Pass': '📱 Updated boarding pass displayed'
+            };
+            
+            const message = actions[action] || '✅ Action completed!';
+            
+            // Show feedback
+            const feedback = document.createElement('div');
+            feedback.className = 'fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-black bg-opacity-80 text-white px-6 py-4 rounded-xl shadow-lg z-60 text-center';
+            feedback.innerHTML = `
+                <div class="text-lg mb-2">${message}</div>
+                <div class="text-sm opacity-80">In production, this would open the relevant screen</div>
+            `;
+            
+            document.body.appendChild(feedback);
+            
+            // Remove feedback after 2 seconds
+            setTimeout(() => {
+                feedback.remove();
+            }, 2000);
+        }
+
+        function dismissNotification(button) {
+            const notification = button.closest('.bg-opacity-95');
+            notification.classList.add('translate-x-full', 'opacity-0');
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 300);
+        }
+    </script>
+
+
+</div></body></html>
